@@ -1,0 +1,126 @@
+{
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Phase 1",
+      "description": "Start here: the basics of fashion and garment making.",
+      "icon": "book",
+      "color": "#d4a24c",
+      "order": 1
+    },
+    {
+      "id": "phase-2",
+      "name": "Phase 2",
+      "description": "Pattern making and garment construction.",
+      "icon": "scissors",
+      "color": "#4fb3a9",
+      "order": 2
+    },
+    {
+      "id": "phase-3",
+      "name": "Phase 3",
+      "description": "Technology: tech packs and digital design.",
+      "icon": "layers",
+      "color": "#7c8cf5",
+      "order": 3
+    },
+    {
+      "id": "phase-4",
+      "name": "Phase 4",
+      "description": "Fabrics, production and running a fashion business.",
+      "icon": "star",
+      "color": "#e0768a",
+      "order": 4
+    }
+  ],
+  "videos": [
+    {
+      "id": "v1",
+      "youtubeId": "",
+      "title": "Introduction to Fashion Design",
+      "description": "",
+      "phaseId": "phase-1",
+      "duration": "15:30",
+      "order": 1,
+      "published": true,
+      "featured": true
+    },
+    {
+      "id": "v2",
+      "youtubeId": "",
+      "title": "Fashion Terms Every Beginner Should Know",
+      "description": "",
+      "phaseId": "phase-1",
+      "duration": "12:05",
+      "order": 2,
+      "published": true,
+      "featured": true
+    },
+    {
+      "id": "v3",
+      "youtubeId": "",
+      "title": "Pattern Making Basics",
+      "description": "",
+      "phaseId": "phase-2",
+      "duration": "22:15",
+      "order": 3,
+      "published": true,
+      "featured": true
+    },
+    {
+      "id": "v4",
+      "youtubeId": "",
+      "title": "Sewing a Camp-Collar Shirt",
+      "description": "",
+      "phaseId": "phase-2",
+      "duration": "31:40",
+      "order": 4,
+      "published": true,
+      "featured": true
+    },
+    {
+      "id": "v5",
+      "youtubeId": "",
+      "title": "Digital Pattern Making",
+      "description": "",
+      "phaseId": "phase-3",
+      "duration": "18:20",
+      "order": 5,
+      "published": true,
+      "featured": false
+    },
+    {
+      "id": "v6",
+      "youtubeId": "",
+      "title": "How to Read a Tech Pack",
+      "description": "",
+      "phaseId": "phase-3",
+      "duration": "14:10",
+      "order": 6,
+      "published": true,
+      "featured": false
+    },
+    {
+      "id": "v7",
+      "youtubeId": "",
+      "title": "Fabric Selection Guide",
+      "description": "",
+      "phaseId": "phase-4",
+      "duration": "20:10",
+      "order": 7,
+      "published": true,
+      "featured": false
+    },
+    {
+      "id": "v8",
+      "youtubeId": "",
+      "title": "Starting Your Fashion Business",
+      "description": "",
+      "phaseId": "phase-4",
+      "duration": "25:00",
+      "order": 8,
+      "published": true,
+      "featured": false
+    }
+  ]
+}

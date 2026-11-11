@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env*
+!.env.example
+.vercel/
+scripts/migration-data/*.csv
+.vercel
