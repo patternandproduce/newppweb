@@ -108,13 +108,10 @@ export default async function handler(req, res) {
         .insert({ kind, data: payload, status: "new", exported: false });
       if (error) throw error;
       // Notify the business through Resend. Database acceptance remains authoritative if email is temporarily unavailable.
+
+      // Send a notification only. Registration details remain in Supabase.
       try {
-        const subject = `${kind[0].toUpperCase()}${kind.slice(1)}: ${payload.first_name || payload.email || "New website submission"}`;
-        const lines = Object.entries(payload)
-          .filter(([k]) => !["company"].includes(k))
-          .map(([k, v]) => `${k.replace(/_/g, " ")}: ${String(v ?? "")}`)
-          .join("\n");
-        await fetch("https://api.resend.com/emails", {
+        const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${env("RESEND_API_KEY")}`,
@@ -125,17 +122,27 @@ export default async function handler(req, res) {
             to: [
               process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com",
             ],
-            reply_to: payload.email || undefined,
-            subject,
-            text: lines,
+            subject: `New ${kind} submission received`,
+            text: `A new ${kind} submission has been received on the Pattern & Produce website.
+Please log in to your admin dashboard to review the submission.
+Submission type: ${kind}
+Submitted by: ${payload.first_name || "A website visitor"}
+Email: ${payload.email || "Not provided"}
+This email is an automated notification. No registration details are included.`,
           }),
         });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Resend error: ${errorText}`);
+        }
       } catch (mailError) {
         console.error(
           "Submission notification email failed:",
           mailError?.message,
         );
       }
+
       return send(res, 200, { ok: true, data: { accepted: true } });
     }
     if (action === "visit") {

@@ -45,7 +45,7 @@ export default function Workforce() {
             ? shown.map((v) => (<VideoCard key={v.id} video={v} phase={lib.phases.find((p) => p.id === v.phaseId)} onOpen={setOpen} />))
             : [0, 1, 2, 3].map((k) => (<div className="vc sk" key={k}><div className="vthumb" /><div className="vmeta"><h3>&nbsp;</h3><p className="vcat">&nbsp;</p></div></div>))}
         </div>
-        <div className="wf-more"><Link className="btn-fill" to={TUT}>Explore <Icon name="arrow" size={18} /></Link></div>
+        {/* <div className="wf-more"><Link className="btn-fill" to={TUT}>Explore <Icon name="arrow" size={18} /></Link></div> */}
       </section>
 
       <section className="wf-sec dk" id="register-band">
