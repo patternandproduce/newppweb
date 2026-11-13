@@ -143,6 +143,20 @@ export default async function handler(req, res) {
       const path = clean(data.path).slice(0, 300);
       if (!sid || !path || path.startsWith("/admin"))
         return send(res, 200, { ok: true, data: true });
+
+      const getHeader = (name) => {
+        const value = req.headers[name];
+        return typeof value === "string" ? value : "";
+      };
+
+      const decodeLocation = (value) => {
+        try {
+          return decodeURIComponent(value);
+        } catch {
+          return value;
+        }
+      };
+
       const { error } = await db()
         .from("visits")
         .insert({
@@ -150,7 +164,17 @@ export default async function handler(req, res) {
           path,
           device: clean(data.device).slice(0, 30),
           referrer: clean(data.ref).slice(0, 200),
+
+          // Approximate visitor location from Vercel
+          country_code: getHeader("x-vercel-ip-country").slice(0, 2),
+          city: decodeLocation(getHeader("x-vercel-ip-city")).slice(0, 100),
+          region: decodeLocation(getHeader("x-vercel-ip-country-region")).slice(
+            0,
+            100,
+          ),
+          timezone: getHeader("x-vercel-ip-timezone").slice(0, 100),
         });
+
       if (error) throw error;
       return send(res, 200, { ok: true, data: true });
     }
