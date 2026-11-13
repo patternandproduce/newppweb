@@ -302,7 +302,9 @@ export default async function handler(req, res) {
       start.setFullYear(start.getFullYear() - 1);
       const { data: rows, error } = await client
         .from("visits")
-        .select("session_id,path,device,referrer,created_at")
+        .select(
+          "session_id,path,device,referrer,country_code,city,region,timezone,created_at",
+        )
         .gte("created_at", start.toISOString())
         .order("created_at")
         .limit(10000);
@@ -361,6 +363,19 @@ export default async function handler(req, res) {
         o[k] = (o[k] || 0) + 1;
         return o;
       }, {});
+      const countries = totalRows.reduce((o, r) => {
+        const k = r.country_code || "Unknown";
+        o[k] = (o[k] || 0) + 1;
+        return o;
+      }, {});
+
+      const locations = totalRows.reduce((o, r) => {
+        const city = r.city || "Unknown city";
+        const country = r.country_code || "Unknown country";
+        const k = `${city}, ${country}`;
+        o[k] = (o[k] || 0) + 1;
+        return o;
+      }, {});
       return send(res, 200, {
         ok: true,
         data: {
@@ -374,6 +389,8 @@ export default async function handler(req, res) {
           devices: tally("device"),
           pages: tally("path"),
           sources,
+          countries,
+          locations,
         },
       });
     }
