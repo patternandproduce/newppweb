@@ -186,13 +186,172 @@ This email is an automated notification. No registration details are included.`,
       return send(res, 200, { ok: true, data: true });
     }
 
+    // Newsletter authorization
+
+    if (action === "newsletter.subscribe") {
+      const email = String(data.email || "")
+        .trim()
+        .toLowerCase();
+      const city = clean(data.city).trim().slice(0, 100) || null;
+      const country = clean(data.country).trim().slice(0, 100) || null;
+      const interests = Array.isArray(data.interests)
+        ? data.interests.map((x) => clean(x).trim().slice(0, 80)).filter(Boolean).slice(0, 20)
+        : [];
+
+      // Basic email validation
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return send(res, 400, {
+          ok: false,
+          error: "Please enter a valid email address.",
+        });
+      }
+
+      // Save the subscriber in Supabase
+      const { error } = await db()
+        .from("newsletter_subscribers")
+        .insert({ email, city, country, interests });
+
+      // Treat an existing email as an already completed subscription
+      if (error?.code === "23505") {
+        return send(res, 200, {
+          ok: true,
+          data: { message: "You are already subscribed." },
+        });
+      }
+
+      if (error) {
+        console.error("Newsletter database error:", error);
+        return send(res, 500, {
+          ok: false,
+          error: "We couldn't process your subscription. Please try again.",
+        });
+      }
+
+      // Send a notification only. The subscriber record stays in Supabase.
+      try {
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env("RESEND_API_KEY")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: env("EMAIL_FROM"),
+            to: [
+              process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com",
+            ],
+            subject: "New newsletter subscriber",
+            text: "A new visitor has subscribed to the Pattern & Produce newsletter. Please check your admin dashboard.",
+          }),
+        });
+
+        if (!response.ok) {
+          console.error(
+            "Newsletter notification failed:",
+            await response.text(),
+          );
+        }
+      } catch (mailError) {
+        console.error("Newsletter notification failed:", mailError?.message);
+      }
+
+      return send(res, 200, {
+        ok: true,
+        data: { message: "Subscription successful." },
+      });
+    }
+//.....
+    const adminNewsletterActions = new Set([
+      "newsletter.list",
+      "newsletter.update",
+      "newsletter.delete",
+      "newsletter.send",
+    ]);
     const { client, user, profile } = await authUser(
       req,
-      action === "staff.list" ||
+      adminNewsletterActions.has(action) ||
+        action === "staff.list" ||
         action === "staff.save" ||
         action === "staff.setActive",
     );
     if (action === "me") return send(res, 200, { ok: true, data: profile });
+
+    if (action === "newsletter.list") {
+      const { data: rows, error } = await client
+        .from("newsletter_subscribers")
+        .select("id,email,city,country,interests,tags,created_at,unsubscribed_at")
+        .order("created_at", { ascending: false })
+        .limit(10000);
+      if (error) throw error;
+      return send(res, 200, { ok: true, data: rows || [] });
+    }
+
+    if (action === "newsletter.update") {
+      if (!data.id) throw new Error("Subscriber ID is required.");
+      const patch = {
+        city: clean(data.city).trim().slice(0, 100) || null,
+        country: clean(data.country).trim().slice(0, 100) || null,
+        interests: Array.isArray(data.interests) ? data.interests.map((x) => clean(x).trim().slice(0, 80)).filter(Boolean).slice(0, 20) : [],
+        tags: Array.isArray(data.tags) ? data.tags.map((x) => clean(x).trim().slice(0, 50)).filter(Boolean).slice(0, 30) : [],
+      };
+      const { error } = await client.from("newsletter_subscribers").update(patch).eq("id", data.id);
+      if (error) throw error;
+      return send(res, 200, { ok: true, data: { updated: true } });
+    }
+
+    if (action === "newsletter.delete") {
+      if (!data.id) throw new Error("Subscriber ID is required.");
+      const { error } = await client.from("newsletter_subscribers").delete().eq("id", data.id);
+      if (error) throw error;
+      return send(res, 200, { ok: true, data: { deleted: true } });
+    }
+
+    if (action === "newsletter.send") {
+      const subject = clean(data.subject).replace(/[\r\n]+/g, " ").trim().slice(0, 200);
+      const body = clean(data.body).trim();
+      const imageUrl = clean(data.imageUrl).trim();
+      if (!subject || !body) throw new Error("Add an email subject and message.");
+      if (imageUrl && !/^https:\/\//i.test(imageUrl)) throw new Error("The newsletter image must use a secure HTTPS URL.");
+      if (!Array.isArray(data.ids) || !data.ids.length || data.ids.length > 10000)
+        throw new Error("Select at least one subscriber before sending.");
+      let query = client.from("newsletter_subscribers")
+        .select("id,email,city,country,interests,tags,created_at,unsubscribe_token")
+        .is("unsubscribed_at", null)
+        .order("created_at", { ascending: true });
+      if (Array.isArray(data.ids) && data.ids.length) query = query.in("id", data.ids);
+      const { data: recipients, error } = await query.limit(10000);
+      if (error) throw error;
+      const safeRecipients = (recipients || []).filter((r) => /^\S+@\S+\.\S+$/.test(r.email || ""));
+      if (!safeRecipients.length) throw new Error("There are no active subscribers in this selection.");
+      const escapeHtml = (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+      const origin = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}`;
+      const htmlBody = body.split(/\r?\n/).map((line) => line ? `<p style=\"margin:0 0 14px;line-height:1.65\">${escapeHtml(line)}</p>` : `<div style=\"height:8px\"></div>`).join("");
+      const apiKey = env("RESEND_API_KEY");
+      let sent = 0, failed = 0;
+      for (let i = 0; i < safeRecipients.length; i += 100) {
+        const batch = safeRecipients.slice(i, i + 100).map((r) => {
+          const unsubscribe = `${origin}/api/newsletter-unsubscribe?token=${encodeURIComponent(r.unsubscribe_token || "")}`;
+          const image = imageUrl ? `<img src=\"${escapeHtml(imageUrl)}\" alt=\"\" style=\"display:block;width:100%;max-width:640px;height:auto;margin:0 0 24px;border:0\" />` : "";
+          return {
+            from: env("EMAIL_FROM"),
+            to: [r.email],
+            subject,
+            html: `<div style=\"font-family:Arial,sans-serif;color:#222;max-width:640px;margin:0 auto;padding:24px\">${image}${htmlBody}<hr style=\"border:0;border-top:1px solid #ddd;margin:28px 0 14px\"><p style=\"font-size:12px;color:#777;line-height:1.5\">You are receiving this email because you subscribed to Pattern &amp; Produce updates. <a href=\"${unsubscribe}\">Unsubscribe</a></p></div>`,
+            text: `${body}\n\nUnsubscribe: ${unsubscribe}`,
+          };
+        });
+        try {
+          const response = await fetch("https://api.resend.com/emails/batch", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(batch),
+          });
+          if (!response.ok) { failed += batch.length; console.error("Newsletter batch failed:", (await response.text()).slice(0, 500)); }
+          else sent += batch.length;
+        } catch (mailError) { failed += batch.length; console.error("Newsletter batch error:", mailError?.message); }
+      }
+      return send(res, 200, { ok: true, data: { sent, failed, total: safeRecipients.length } });
+    }
 
     if (action === "library.save") {
       const phases = Array.isArray(data.phases) ? data.phases : [];

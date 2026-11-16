@@ -2,11 +2,13 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { CONTACT } from "../config.js";
 import { watch } from "../lib/reveal.js";
+
 import {
   FaEnvelope,
   FaInstagram,
   FaRegCommentDots,
   FaNewspaper,
+  FaWhatsapp,
 } from "react-icons/fa";
 
 const NAV = [
@@ -94,15 +96,56 @@ function Header() {
 
 function Footer() {
   const [email, setEmail] = useState("");
+  const [newsletterMessage, setNewsletterMessage] = useState("");
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
 
-  const handleSubscribe = (e) => {
+  const handleSubscribe = async (e) => {
     e.preventDefault();
-    // Newsletter submission will be connected to the backend separately.
-  };
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) return;
+
+    setNewsletterLoading(true);
+    setNewsletterMessage("");
+
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "newsletter.subscribe",
+          data: {
+            email: cleanEmail,
+          },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(
+          result.error || "Subscription failed. Please try again.",
+        );
+      }
+
+      setNewsletterMessage("Thank you for subscribing!");
+      setEmail("");
+    } catch (error) {
+      console.error("Newsletter subscription error:", error);
+
+      setNewsletterMessage(
+        error.message || "Something went wrong. Please try again.",
+      );
+    } finally {
+      setNewsletterLoading(false);
+    }
+  };
   return (
     <footer
-      className="dk"
+      className="dk site-footer"
       style={{
         padding: "40px 5%",
         display: "grid",
@@ -123,7 +166,6 @@ function Footer() {
           <FaNewspaper size={20} />
           <span>Newsletter</span>
         </div>
-
 
         <h2 style={{ marginTop: 8, maxWidth: "100%", lineHeight: 1.1 }}>
           stay in the loop
@@ -166,6 +208,7 @@ function Footer() {
           <button
             type="submit"
             aria-label="Subscribe"
+            disabled={newsletterLoading}
             style={{
               background: "transparent",
               border: "none",
@@ -174,9 +217,11 @@ function Footer() {
               fontSize: 22,
             }}
           >
-            →
+            {newsletterLoading ? "..." : "→"}
           </button>
         </form>
+
+        {newsletterMessage && <p role="status">{newsletterMessage}</p>}
       </div>
 
       {/* Explore */}
@@ -304,8 +349,10 @@ export default function Layout() {
         href={CONTACT.whatsapp}
         target="_blank"
         rel="noopener noreferrer"
+        aria-label="Chat with us on WhatsApp"
+        title="Chat on WhatsApp"
       >
-        Chat on WhatsApp
+        <FaWhatsapp />
       </a>
     </>
   );

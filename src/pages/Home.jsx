@@ -5,6 +5,7 @@ import Icon from "../components/Icon.jsx";
 import VideoModal from "../components/VideoModal.jsx";
 import usePageTitle from "../components/usePageTitle.js";
 import { useLibrary, thumbOf } from "../lib/library.js";
+import PartnersTicker from "../components/PartnersTicker.jsx";
 
 const HALF = "(max-width:900px) 100vw, 50vw";
 const FULL = "100vw";
@@ -184,7 +185,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-<hr />
+      <hr />
       {/* <div className="dk">
         <section>
           <div className="eyebrow">About us</div>
@@ -245,7 +246,7 @@ export default function Home() {
           </figure>
         </div>
       </section>
-
+      <PartnersTicker />
       {/* <div className="dk banner">
         <Photo name="studio" pos="50% 40%" sizes={FULL} label="Banner" />
         <div className="shade" />

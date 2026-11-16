@@ -41,6 +41,10 @@ Create a Cloudinary account and add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY
 3. Set `RESEND_API_KEY`, `EMAIL_FROM` (must use the verified domain), and `CONTACT_NOTIFY_EMAIL`.
 4. Website form submissions are stored in Supabase and trigger a notification email. Admin bulk email is sent through Resend from the server. EmailJS is no longer used.
 
+## Newsletter management
+
+See [`NEWSLETTER-SETUP.md`](./NEWSLETTER-SETUP.md) for the newsletter subscriber grouping, custom campaigns, Cloudinary image upload, unsubscribe handling, and Excel/Google Sheets-compatible exports. Apply the newsletter migration in Supabase before using the new admin page.
+
 ## Environment variables
 
 | Variable | Where | Purpose |
