@@ -849,7 +849,6 @@
   }
 }
 
-
 /* Partners Ticker  */
 
 /* ========================================
@@ -875,7 +874,7 @@
   display: block;
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   color: #777;
   margin-bottom: 12px;
 }
@@ -899,13 +898,15 @@
   min-height: 105px;
   padding: 20px;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, .06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  transition: transform .25s ease, box-shadow .25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
   box-shadow: 0 0 5px 5px rgba(70, 70, 70, 0.2);
 }
 

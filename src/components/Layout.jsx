@@ -297,7 +297,7 @@ function Footer() {
           marginTop: 4,
         }}
       >
-        <p>© {new Date().getFullYear()} Pattern and Produce Limited</p>
+        <p>© {new Date().getFullYear()} PATTERN & PRODUCE LIMITED</p>
       </div>
     </footer>
   );

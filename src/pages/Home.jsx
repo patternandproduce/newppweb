@@ -73,9 +73,9 @@ export default function Home() {
   return (
     <div className="page">
       <section className="hero">
-        <div className="eyebrow">
+        {/* <div className="eyebrow">
           Fashion Technology &middot; Manufacturing &middot; Skills
-        </div>
+        </div> */}
         <h1>Where fashion design meets production.</h1>
         <p className="lead">
           Pattern &amp; Produce helps fashion brands turn ideas into precise,
@@ -86,7 +86,8 @@ export default function Home() {
           Book a consultation
         </Link>
       </section>
-
+      <hr />
+{/* 
       <div className="band dk">
         <section className="bleed">
           <div className="split">
@@ -104,7 +105,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </div>
+      </div> */}
 
       <section className="bleed">
         <div className="split">

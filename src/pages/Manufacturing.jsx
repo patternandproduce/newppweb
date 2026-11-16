@@ -9,11 +9,12 @@ export default function Manufacturing() {
   return (
     <div className="page">
       <section className="hero">
-        <div className="eyebrow">Garment Manufacturing</div>
-        <h1>B2B manufacturing built to scale.</h1>
+        {/* <div className="eyebrow">Garment Manufacturing</div> */}
+        <h1>B2B manufacturing - built to scale.</h1>
         <p className="lead">
+
           From fabric to finished garment, we manage production for fashion
-          brands with quality, consistency and speed.
+          brands with quality, precision, and consistency.
         </p>
       </section>
       <div className="band dk">
@@ -30,7 +31,7 @@ export default function Manufacturing() {
             <div className="card">
               <h3>Fabric Sourcing</h3>
               <p>
-                Vetted suppliers, fabric matching and fair pricing for your
+                Indigenous and international vetted fabric suppliers, quality and sustainable product, fabric matching and fair pricing for your
                 collection.
               </p>
             </div>
