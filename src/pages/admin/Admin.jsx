@@ -734,7 +734,7 @@ const NAV = [
   { to: "/admin/phases", label: "Phases", icon: "layers" },
   { to: "/admin/publish", label: "Publish & backup", icon: "upload" },
   { to: "/admin/staff", label: "Staff", icon: "lock", admin: true },
-  { to: "/admin/newsletter", label: "Newsletter", icon: "mail", admin: true },
+  // { to: "/admin/newsletter", label: "Newsletter", icon: "mail", admin: true },
 ];
 function titleFor(path) {
   const p = path.replace(/^\/admin\/?/, "").split("/");
