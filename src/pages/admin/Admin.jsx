@@ -729,7 +729,7 @@ const NAV = [
   },
   { to: "/admin/leads/quotes", label: "Quote requests", icon: "ruler" },
   { to: "/admin/leads/contacts", label: "Contact messages", icon: "mail" },
-  { to: "/admin/newsletter", label: "Newsletter", icon: "mail", admin: true },
+  { to: "/admin/newsletter", label: "Newsletter", icon: "mail" },
   { to: "/admin/videos", label: "Tutorial videos", icon: "play" },
   { to: "/admin/phases", label: "Phases", icon: "layers" },
   { to: "/admin/publish", label: "Publish & backup", icon: "upload" },
