@@ -40,9 +40,12 @@ function Header() {
   return (
     <header className={(open ? "open " : "") + (scrolled ? "scrolled" : "")}>
       <Link className="logo brand-lockup" to="/" title="Home">
-        <img src={brandLogo} alt="" aria-hidden="true" />
+        {/* <img src={brandLogo} alt="" aria-hidden="true" /> */}
         <span>Pattern &amp; Produce</span>
       </Link>
+      {/* <Link className="logo" to="/" title="Home">
+        Pattern &amp; Produce
+      </Link> */}
       <nav id="nav">
         {NAV.map(([to, label]) => (
           <NavLink

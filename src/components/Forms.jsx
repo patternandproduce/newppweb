@@ -115,7 +115,8 @@ export function RegisterForm() {
   const [formError, setFormError] = useState("");
   const onDob = (e) => {
     if (!e.target.value) return;
-    const d = new Date(e.target.value), n = new Date();
+    const d = new Date(e.target.value),
+      n = new Date();
     let a = n.getFullYear() - d.getFullYear();
     const m = n.getMonth() - d.getMonth();
     if (m < 0 || (m === 0 && n.getDate() < d.getDate())) a--;
@@ -124,81 +125,287 @@ export function RegisterForm() {
   const onSubmit = async (e) => {
     e.preventDefault();
     const form = e.currentTarget;
-    if (!form.checkValidity()) { form.reportValidity(); return; }
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
     const f = fieldsOf(form);
-    if (f.honey) { setState("done"); return; }
-    if (!supabaseReady || !supabase) { setFormError("Student registration is temporarily unavailable. Please contact us directly."); setState("error"); return; }
-    if (f.g("password") !== f.g("confirm_password")) { setFormError("Your passwords do not match."); setState("error"); return; }
-    setState("busy"); setFormError("");
+    if (f.honey) {
+      setState("done");
+      return;
+    }
+    if (!supabaseReady || !supabase) {
+      setFormError(
+        "Student registration is temporarily unavailable. Please contact us directly.",
+      );
+      setState("error");
+      return;
+    }
+    if (f.g("password") !== f.g("confirm_password")) {
+      setFormError("Your passwords do not match.");
+      setState("error");
+      return;
+    }
+    setState("busy");
+    setFormError("");
     const d = {
-      first_name: f.g("first_name"), last_name: f.g("last_name"), dob: f.g("dob"), age: f.g("age"),
-      sex: f.g("sex"), school: f.g("school"), phone: f.g("phone"), email: f.g("email").toLowerCase(),
-      address: f.g("address"), lga: f.g("lga"), motivation: f.g("motivation"), can_devote: f.g("can_devote"),
-      availability: f.g("availability"), parents_afford: f.g("parents_afford"), guardian_name: f.g("guardian_name"),
-      guardian_phone: f.g("guardian_phone"), guardian_address: f.g("guardian_address"),
-      page: location.href, submitted_at: new Date().toISOString(),
+      first_name: f.g("first_name"),
+      last_name: f.g("last_name"),
+      dob: f.g("dob"),
+      age: f.g("age"),
+      sex: f.g("sex"),
+      school: f.g("school"),
+      phone: f.g("phone"),
+      email: f.g("email").toLowerCase(),
+      address: f.g("address"),
+      lga: f.g("lga"),
+      motivation: f.g("motivation"),
+      can_devote: f.g("can_devote"),
+      availability: f.g("availability"),
+      parents_afford: f.g("parents_afford"),
+      guardian_name: f.g("guardian_name"),
+      guardian_phone: f.g("guardian_phone"),
+      guardian_address: f.g("guardian_address"),
+      page: location.href,
+      submitted_at: new Date().toISOString(),
     };
     try {
       const { data, error } = await supabase.auth.signUp({
         email: d.email,
         password: f.g("password"),
-        options: { data: { name: `${d.first_name} ${d.last_name}`.trim(), username: d.email.split("@")[0] } },
+        options: {
+          emailRedirectTo: `${window.location.origin}/student-access?verified=1`,
+          data: {
+            name: `${d.first_name} ${d.last_name}`.trim(),
+            username: d.email.split("@")[0],
+          },
+        },
       });
       if (error) throw error;
-      if (!data?.user?.id || (data.user.identities && data.user.identities.length === 0)) {
-        throw new Error("An account with this email may already exist. Please use the student login page or contact us for help.");
+      if (
+        !data?.user?.id ||
+        (data.user.identities && data.user.identities.length === 0)
+      ) {
+        throw new Error(
+          "An account with this email may already exist. Please use the student login page or contact us for help.",
+        );
       }
-      await rpc("student.application.submit", { userId: data.user.id, email: d.email, data: d });
+      await rpc("student.application.submit", {
+        userId: data.user.id,
+        email: d.email,
+        data: d,
+      });
       await supabase.auth.signOut();
       setState("done");
       form.reset();
       setAge("");
     } catch (error) {
-      setFormError(error.message || "We could not complete your registration. Please try again.");
+      setFormError(
+        error.message ||
+          "We could not complete your registration. Please try again.",
+      );
       setState("error");
     }
   };
-  if (state === "done") return <div className="notice">Thank you for registering. Your application has been received and is awaiting approval. If email confirmation is enabled, please verify your email address as well. You will be able to log in to the tutorial library once your application is approved. <Link to="/student-access">Student login</Link></div>;
+  if (state === "done")
+    return (
+      <div className="notice">
+        Thank you for registering. Your application has been received and is
+        awaiting approval. If email confirmation is enabled, please verify your
+        email address as well. You will be able to log in to the tutorial
+        library once your application is approved.{" "}
+        <Link to="/student-access">Student login</Link>
+      </div>
+    );
   return (
     <form className="reg" onSubmit={onSubmit} noValidate>
       <fieldset>
         <Row>
-          <Field id="r-first" label="First name"><input id="r-first" name="first_name" required autoComplete="given-name" /></Field>
-          <Field id="r-last" label="Last name"><input id="r-last" name="last_name" required autoComplete="family-name" /></Field>
+          <Field id="r-first" label="First name">
+            <input
+              id="r-first"
+              name="first_name"
+              required
+              autoComplete="given-name"
+            />
+          </Field>
+          <Field id="r-last" label="Last name">
+            <input
+              id="r-last"
+              name="last_name"
+              required
+              autoComplete="family-name"
+            />
+          </Field>
         </Row>
         <Row>
-          <Field id="r-dob" label="Date of birth"><input id="r-dob" type="date" name="dob" required autoComplete="bday" onChange={onDob} /></Field>
-          <Field id="r-age" label="Age"><input id="r-age" type="number" min="5" max="99" name="age" required inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} /></Field>
+          <Field id="r-dob" label="Date of birth">
+            <input
+              id="r-dob"
+              type="date"
+              name="dob"
+              required
+              autoComplete="bday"
+              onChange={onDob}
+            />
+          </Field>
+          <Field id="r-age" label="Age">
+            <input
+              id="r-age"
+              type="number"
+              min="5"
+              max="99"
+              name="age"
+              required
+              inputMode="numeric"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+            />
+          </Field>
         </Row>
         <Row>
-          <Field id="r-sex" label="Sex"><select id="r-sex" name="sex" required defaultValue=""><option value="">Select</option><option>Female</option><option>Male</option></select></Field>
-          <Field id="r-school" label="School"><input id="r-school" name="school" required /></Field>
+          <Field id="r-sex" label="Sex">
+            <select id="r-sex" name="sex" required defaultValue="">
+              <option value="">Select</option>
+              <option>Female</option>
+              <option>Male</option>
+            </select>
+          </Field>
+          <Field id="r-school" label="School">
+            <input id="r-school" name="school" required />
+          </Field>
         </Row>
         <Row>
-          <Field id="r-phone" label="Mobile number"><input id="r-phone" type="tel" name="phone" required autoComplete="tel" /></Field>
-          <Field id="r-email" label="Email address"><input id="r-email" type="email" name="email" required autoComplete="email" /></Field>
+          <Field id="r-phone" label="Mobile number">
+            <input
+              id="r-phone"
+              type="tel"
+              name="phone"
+              required
+              autoComplete="tel"
+            />
+          </Field>
+          <Field id="r-email" label="Email address">
+            <input
+              id="r-email"
+              type="email"
+              name="email"
+              required
+              autoComplete="email"
+            />
+          </Field>
         </Row>
         <Row>
-          <Field id="r-password" label="Create password"><input id="r-password" type="password" name="password" minLength="8" required autoComplete="new-password" /></Field>
-          <Field id="r-confirm-password" label="Confirm password"><input id="r-confirm-password" type="password" name="confirm_password" minLength="8" required autoComplete="new-password" /></Field>
+          <Field id="r-password" label="Create password">
+            <input
+              id="r-password"
+              type="password"
+              name="password"
+              minLength="8"
+              required
+              autoComplete="new-password"
+            />
+          </Field>
+          <Field id="r-confirm-password" label="Confirm password">
+            <input
+              id="r-confirm-password"
+              type="password"
+              name="confirm_password"
+              minLength="8"
+              required
+              autoComplete="new-password"
+            />
+          </Field>
         </Row>
-        <p className="form-hint">Use at least 8 characters. You will use this password to log in after your registration is approved.</p>
+        <p className="form-hint">
+          Use at least 8 characters. You will use this password to log in after
+          your registration is approved.
+        </p>
         <Row>
-          <Field id="r-address" label="Address"><input id="r-address" name="address" required autoComplete="street-address" /></Field>
-          <Field id="r-lga" label="LGA"><input id="r-lga" name="lga" list="lgas" required /><datalist id="lgas">{LGAS.map((l) => <option key={l} value={l} />)}</datalist></Field>
+          <Field id="r-address" label="Address">
+            <input
+              id="r-address"
+              name="address"
+              required
+              autoComplete="street-address"
+            />
+          </Field>
+          <Field id="r-lga" label="LGA">
+            <input id="r-lga" name="lga" list="lgas" required />
+            <datalist id="lgas">
+              {LGAS.map((l) => (
+                <option key={l} value={l} />
+              ))}
+            </datalist>
+          </Field>
         </Row>
       </fieldset>
       <fieldset>
-        <legend>Why do you think acquiring an operational skill in the garment industry would help you to be better equipped for the future?</legend>
-        {MOTIVES.map((m) => <label className="opt" key={m}><input type="radio" name="motivation" value={m} required /><span>{m}</span></label>)}
+        <legend>
+          Why do you think acquiring an operational skill in the garment
+          industry would help you to be better equipped for the future?
+        </legend>
+        {MOTIVES.map((m) => (
+          <label className="opt" key={m}>
+            <input type="radio" name="motivation" value={m} required />
+            <span>{m}</span>
+          </label>
+        ))}
       </fieldset>
-      <fieldset><legend>Will you be able to devote your time to learn garment making if given the opportunity to learn at Pattern &amp; Produce?</legend><YesNo name="can_devote" /></fieldset>
-      <fieldset><legend>How often will you be available to learn?</legend><input name="availability" required placeholder="e.g. Monday to Friday, 10am to 2pm" aria-label="How often will you be available to learn?" /></fieldset>
-      <fieldset><legend>Will your parents be able to afford the cost of the training?</legend><YesNo name="parents_afford" /></fieldset>
-      <fieldset><legend>Parent / guardian contact</legend><Row><Field id="g-name" label="Full name"><input id="g-name" name="guardian_name" required /></Field><Field id="g-phone" label="Mobile number"><input id="g-phone" type="tel" name="guardian_phone" required /></Field></Row><Field id="g-address" label="Address"><input id="g-address" name="guardian_address" required /></Field></fieldset>
-      <input className="hp" type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-      <p className={"err" + (state === "error" ? " show" : "")} role="alert">{formError || FAIL}</p>
-      <button className={"btn" + (state === "busy" ? " busy" : "")} disabled={state === "busy"} style={{ marginTop: 0 }}>{state === "busy" ? "Submitting application…" : "Submit registration"}</button>
+      <fieldset>
+        <legend>
+          Will you be able to devote your time to learn garment making if given
+          the opportunity to learn at Pattern &amp; Produce?
+        </legend>
+        <YesNo name="can_devote" />
+      </fieldset>
+      <fieldset>
+        <legend>How often will you be available to learn?</legend>
+        <input
+          name="availability"
+          required
+          placeholder="e.g. Monday to Friday, 10am to 2pm"
+          aria-label="How often will you be available to learn?"
+        />
+      </fieldset>
+      <fieldset>
+        <legend>
+          Will your parents be able to afford the cost of the training?
+        </legend>
+        <YesNo name="parents_afford" />
+      </fieldset>
+      <fieldset>
+        <legend>Parent / guardian contact</legend>
+        <Row>
+          <Field id="g-name" label="Full name">
+            <input id="g-name" name="guardian_name" required />
+          </Field>
+          <Field id="g-phone" label="Mobile number">
+            <input id="g-phone" type="tel" name="guardian_phone" required />
+          </Field>
+        </Row>
+        <Field id="g-address" label="Address">
+          <input id="g-address" name="guardian_address" required />
+        </Field>
+      </fieldset>
+      <input
+        className="hp"
+        type="text"
+        name="company"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+      />
+      <p className={"err" + (state === "error" ? " show" : "")} role="alert">
+        {formError || FAIL}
+      </p>
+      <button
+        className={"btn" + (state === "busy" ? " busy" : "")}
+        disabled={state === "busy"}
+        style={{ marginTop: 0 }}
+      >
+        {state === "busy" ? "Submitting application…" : "Submit registration"}
+      </button>
     </form>
   );
 }

@@ -26,7 +26,7 @@ export default function Workforce() {
           <div className="eyebrow">Skill &bull; Learn &bull; Grow</div>
           <h1>Workforce <span className="soft">Upskilling</span></h1>
           <p className="lead">Build in-demand skills with our expert-led tutorials and training programs. Upskill today for a better tomorrow.</p>
-          <a className="btn-fill" href="#tutorials" onClick={toVideos}>Explore tutorials <Icon name="arrow" size={18} /></a>
+          {/* <a className="btn-fill" href="#tutorials" onClick={toVideos}>Explore tutorials <Icon name="arrow" size={18} /></a> */}
         </div>
         <div className="wf-photo"><Photo name="portrait" pos="50% 28%" sizes="(max-width:860px) 100vw, 60vw" eager className="bare" /></div>
       </section>
