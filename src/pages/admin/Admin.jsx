@@ -27,6 +27,7 @@ import { LeadsList, LeadDetail, Compose } from "./Leads.jsx";
 import Analytics from "./Analytics.jsx";
 import Staff from "./Staff.jsx";
 import Newsletter from "./Newsletter.jsx";
+import Students from "./Students.jsx";
 
 /* ---------- Sign in (username + password) ---------- */
 function Login({ onDone }) {
@@ -94,7 +95,7 @@ function Login({ onDone }) {
 /* ---------- Videos ---------- */
 const blank = (phases) => ({
   id: "",
-  provider: "youtube",
+  provider: "cloudinary",
   youtubeId: "",
   cloudinaryPublicId: "",
   videoUrl: "",
@@ -110,7 +111,7 @@ const blank = (phases) => ({
 function VideoForm({ initial, phases, onSave, onClose }) {
   const [v, setV] = useState({
     ...initial,
-    provider: initial.provider || "youtube",
+    provider: initial.provider || "cloudinary",
   });
   const [link, setLink] = useState(initial.youtubeId || "");
   const [up, setUp] = useState(false);
@@ -125,9 +126,8 @@ function VideoForm({ initial, phases, onSave, onClose }) {
     });
   const submit = (e) => {
     e.preventDefault();
-    if (bad) return;
-    if (v.provider === "youtube" && !id) {
-      setThumbErr("Add a valid YouTube video link or ID.");
+    if (v.provider === "youtube") {
+      setThumbErr("YouTube videos are publicly accessible and cannot be protected by student approval. Replace this legacy video with a secure Cloudinary upload.");
       return;
     }
     if (v.provider === "cloudinary" && !v.videoUrl) {
@@ -164,16 +164,12 @@ function VideoForm({ initial, phases, onSave, onClose }) {
         );
       const result = await uploadToCloudinary(file, type, setProgress);
       if (type === "video") {
-        const poster = result.url
-          .replace("/video/upload/", "/video/upload/so_0/")
-          .replace(/\.[^/.?]+(?=\?|$)/, ".jpg");
         setV((x) => ({
           ...x,
           provider: "cloudinary",
           videoUrl: result.url,
           cloudinaryPublicId: result.publicId,
           duration: result.duration || x.duration,
-          thumbnail: x.thumbnail || poster,
         }));
       } else setV((x) => ({ ...x, thumbnail: result.url }));
     } catch (x) {
@@ -215,8 +211,8 @@ function VideoForm({ initial, phases, onSave, onClose }) {
               setLink("");
             }}
           >
-            <option value="youtube">YouTube link</option>
-            <option value="cloudinary">Upload to Cloudinary</option>
+            <option value="cloudinary">Secure Cloudinary upload</option>
+            {initial.provider === "youtube" && <option value="youtube">Legacy YouTube video — replace to secure</option>}
           </select>
         </label>
         {v.provider === "youtube" ? (
@@ -259,8 +255,7 @@ function VideoForm({ initial, phases, onSave, onClose }) {
               </p>
             )}
             <p className="ad-note">
-              MP4, WebM or MOV · maximum 100 MB. Uploads are signed by the
-              backend.
+              MP4, WebM or MOV · maximum 100 MB. New tutorial uploads are stored as authenticated Cloudinary assets. Upload a separate thumbnail image for the public gallery.
             </p>
           </>
         )}
@@ -730,10 +725,11 @@ const NAV = [
   { to: "/admin/leads/quotes", label: "Quote requests", icon: "ruler" },
   { to: "/admin/leads/contacts", label: "Contact messages", icon: "mail" },
   { to: "/admin/newsletter", label: "Newsletter", icon: "mail" },
+  { to: "/admin/students", label: "Student access", icon: "book" },
   { to: "/admin/videos", label: "Tutorial videos", icon: "play" },
   { to: "/admin/phases", label: "Phases", icon: "layers" },
   { to: "/admin/publish", label: "Publish & backup", icon: "upload" },
-  { to: "/admin/staff", label: "Staff", icon: "lock", admin: true },
+  { to: "/admin/staff", label: "Staff", icon: "lock" },
   // { to: "/admin/newsletter", label: "Newsletter", icon: "mail", admin: true },
 ];
 function titleFor(path) {
@@ -744,6 +740,7 @@ function titleFor(path) {
     {
       message: "Write a message",
       newsletter: "Newsletter management",
+      students: "Student access management",
       videos: "Tutorial videos",
       phases: "Phases",
       publish: "Publish & backup",
@@ -832,6 +829,7 @@ function Dashboard({ session, onLogout }) {
           <Route path="leads/:kind/:id" element={<LeadDetail />} />
           <Route path="message" element={<Compose />} />
           <Route path="newsletter" element={<Newsletter />} />
+          <Route path="students" element={<Students />} />
           <Route
             path="videos"
             element={lib ? <VideosTab lib={lib} commit={commit} /> : wait}

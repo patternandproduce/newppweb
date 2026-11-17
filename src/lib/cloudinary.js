@@ -23,12 +23,13 @@ export async function uploadToCloudinary(
   const signed = await signatureResponse.json();
   if (!signatureResponse.ok || !signed.ok)
     throw new Error(signed.error || "Could not prepare the upload.");
-  const { timestamp, signature, folder, cloudName, apiKey } = signed.data;
+  const { timestamp, signature, folder, cloudName, apiKey, deliveryType } = signed.data;
   const body = new FormData();
   body.append("file", file);
   body.append("api_key", apiKey);
   body.append("timestamp", String(timestamp));
   body.append("folder", folder);
+  if (resourceType === "video") body.append("type", deliveryType || "authenticated");
   body.append("signature", signature);
   const url = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
   const result = await new Promise((resolve, reject) => {

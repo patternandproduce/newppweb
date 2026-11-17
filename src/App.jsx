@@ -10,6 +10,8 @@ const FashionTech = lazy(() => import("./pages/FashionTech.jsx"));
 const Manufacturing = lazy(() => import("./pages/Manufacturing.jsx"));
 const Workforce = lazy(() => import("./pages/Workforce.jsx"));
 const Tutorials = lazy(() => import("./pages/Tutorials.jsx"));
+const StudentLogin = lazy(() => import("./pages/StudentAccess.jsx").then((m) => ({ default: m.StudentLogin })));
+const ProtectedTutorials = lazy(() => import("./pages/StudentAccess.jsx").then((m) => ({ default: m.ProtectedTutorials })));
 const Register = lazy(() =>
   import("./pages/FormPages.jsx").then((m) => ({ default: m.Register })),
 );
@@ -45,10 +47,9 @@ export default function App() {
           <Route path="fashiontech" element={<FashionTech />} />
           <Route path="garment-manufacturing" element={<Manufacturing />} />
           <Route path="workforce-upskilling" element={<Workforce />} />
-          <Route
-            path="workforce-upskilling/tutorials"
-            element={<Tutorials />}
-          />
+          <Route path="student-access" element={<StudentLogin />} />
+          <Route path="tutorials" element={<ProtectedTutorials><Tutorials /></ProtectedTutorials>} />
+          <Route path="workforce-upskilling/tutorials" element={<ProtectedTutorials><Tutorials /></ProtectedTutorials>} />
           <Route path="register" element={<Register />} />
           <Route path="contact" element={<Contact />} />
 

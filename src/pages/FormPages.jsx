@@ -9,7 +9,7 @@ export function Register() {
       <div className="form-card">
         <div className="eyebrow">Join us</div>
         <h1 className="fh">Register with us</h1>
-        <p className="lead" style={{ marginTop: 14 }}>Fill in the form below to apply for training at Pattern &amp; Produce.</p>
+        <p className="lead" style={{ marginTop: 14 }}>Complete the form below to apply for training. You will create your student login details during registration. Tutorial access is enabled after an administrator reviews and approves your application.</p>
         <RegisterForm />
       </div>
     </div>

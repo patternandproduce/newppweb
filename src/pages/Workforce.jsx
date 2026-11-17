@@ -1,14 +1,13 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import Photo from '../components/Photo.jsx';
 import Icon from '../components/Icon.jsx';
 import VideoCard from '../components/VideoCard.jsx';
-import VideoModal from '../components/VideoModal.jsx';
 import usePageTitle from '../components/usePageTitle.js';
 import { useLibrary } from '../lib/library.js';
 import { CONTACT } from '../config.js';
 
-const TUT = '/workforce-upskilling/tutorials';
+const TUT = '/student-access';
 const pick = (lib) => {
   const live = lib.videos.filter((v) => v.published !== false);
   return [...live.filter((v) => v.featured), ...live.filter((v) => !v.featured)].slice(0, 4);
@@ -17,7 +16,7 @@ const pick = (lib) => {
 export default function Workforce() {
   usePageTitle('Workforce Upskilling');
   const lib = useLibrary();
-  const [open, setOpen] = useState(null);
+  const navigate = useNavigate();
   const shown = lib ? pick(lib) : null;
   const toVideos = (e) => { e.preventDefault(); document.getElementById('tutorials')?.scrollIntoView({ behavior: 'smooth' }); };
   return (
@@ -38,11 +37,11 @@ export default function Workforce() {
             <h2 className="wf-title">Tutorial <span className="soft">Video</span> Gallery</h2>
             <p className="lead" style={{ marginTop: 14 }}>Watch step-by-step tutorials and learn at your own pace.</p>
           </div>
-          <Link className="pill" to={TUT}>View all videos <Icon name="arrow" size={16} /></Link>
+          <Link className="pill" to={TUT}>Student login <Icon name="arrow" size={16} /></Link>
         </div>
         <div className="vgrid">
           {shown
-            ? shown.map((v) => (<VideoCard key={v.id} video={v} phase={lib.phases.find((p) => p.id === v.phaseId)} onOpen={setOpen} />))
+            ? shown.map((v) => (<VideoCard key={v.id} video={v} phase={lib.phases.find((p) => p.id === v.phaseId)} locked onOpen={() => navigate(TUT)} />))
             : [0, 1, 2, 3].map((k) => (<div className="vc sk" key={k}><div className="vthumb" /><div className="vmeta"><h3>&nbsp;</h3><p className="vcat">&nbsp;</p></div></div>))}
         </div>
         {/* <div className="wf-more"><Link className="btn-fill" to={TUT}>Explore <Icon name="arrow" size={18} /></Link></div> */}
@@ -86,7 +85,6 @@ export default function Workforce() {
           </div>
         </div>
       </section>
-      {open && <VideoModal video={open} phase={lib.phases.find((p) => p.id === open.phaseId)} onClose={() => setOpen(null)} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { API_BASE } from "../config.js";
-import { rpc, getSession } from "./adminApi.js";
+import { rpc } from "./adminApi.js";
+import { supabase } from "./supabase.js";
 
 /* The tutorial library (phases + videos).
    Source order: dashboard API (when connected) -> preview copy saved by the admin in this browser -> public/data/videos.json */
@@ -22,19 +23,31 @@ const readLocal = () => {
   }
 };
 
-export function loadLibrary(force = false) {
-  if (cache && !force) return cache;
-  cache = (async () => {
+export async function loadLibrary(force = false) {
+  let session = null;
+  if (supabase) {
+    const result = await supabase.auth.getSession();
+    session = result.data?.session || null;
+  }
+  const mode = session?.access_token ? "authenticated" : "public";
+  if (cache && cache.mode === mode && !force) return cache.promise;
+  const promise = (async () => {
     if (API_BASE) {
-      const d = await rpc("library.get", {}, { auth: Boolean(getSession()) });
+      const d = await rpc("library.get", {}, { auth: Boolean(session?.access_token) });
       if (d && d.phases) return normalise(d);
     }
     const local = readLocal();
-    if (local) return local;
+    if (local && mode === "authenticated") return local;
     const r = await fetch("/data/videos.json");
-    return normalise(await r.json());
+    const fallback = normalise(await r.json());
+    if (mode === "authenticated") return fallback;
+    return {
+      phases: fallback.phases,
+      videos: fallback.videos.map(({ id, title, description, thumbnail, phaseId, duration, order, published, featured }) => ({ id, title, description, thumbnail, phaseId, duration, order, published, featured })),
+    };
   })();
-  return cache;
+  cache = { mode, promise };
+  return promise;
 }
 
 export function useLibrary() {
@@ -58,7 +71,7 @@ export async function saveLibrary(lib) {
   } else {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(clean));
   }
-  cache = Promise.resolve(clean);
+  cache = { mode: "authenticated", promise: Promise.resolve(clean) };
   return clean;
 }
 export function clearPreview() {

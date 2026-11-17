@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { CONTACT } from "../config.js";
 import { watch } from "../lib/reveal.js";
+import brandLogo from "../assets/img/pploogo.svg";
 
 import {
   FaEnvelope,
@@ -38,8 +39,9 @@ function Header() {
   }, []);
   return (
     <header className={(open ? "open " : "") + (scrolled ? "scrolled" : "")}>
-      <Link className="logo" to="/" title="Home">
-        Pattern &amp; Produce
+      <Link className="logo brand-lockup" to="/" title="Home">
+        <img src={brandLogo} alt="" aria-hidden="true" />
+        <span>Pattern &amp; Produce</span>
       </Link>
       <nav id="nav">
         {NAV.map(([to, label]) => (

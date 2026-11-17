@@ -30,6 +30,8 @@ async function authUser(req, adminOnly = false) {
     .single();
   if (profileError || !profile || !profile.active)
     throw new Error("Your account is not active.");
+  if (profile.role === "student" && profile.approval_status !== "approved")
+    throw new Error("Your student account is awaiting approval or is not authorised.");
   if (adminOnly && profile.role !== "admin")
     throw new Error("Only administrators can perform this action.");
   return { client, user, profile };
@@ -50,40 +52,98 @@ export default async function handler(req, res) {
   if (!requireMethod(req, res)) return;
   try {
     const { action, data = {} } = req.body || {};
+    if (action === "student.status") {
+      const header = req.headers.authorization || "";
+      const accessToken = header.startsWith("Bearer ") ? header.slice(7) : "";
+      if (!accessToken) throw new Error("Please sign in to continue.");
+      const client = db();
+      const { data: { user }, error: userError } = await client.auth.getUser(accessToken);
+      if (userError || !user) throw new Error("Your session is invalid or expired.");
+      const { data: profile, error } = await client.from("profiles")
+        .select("id,email,name,role,active,approval_status")
+        .eq("id", user.id).single();
+      if (error || !profile) throw new Error("Your student profile could not be found.");
+      return send(res, 200, { ok: true, data: { role: profile.role, active: profile.active, approvalStatus: profile.approval_status } });
+    }
+
+    if (action === "student.application.submit") {
+      const userId = String(data.userId || "");
+      const email = String(data.email || "").trim().toLowerCase();
+      const submitted = data.data && typeof data.data === "object" ? data.data : {};
+      const application = { ...submitted };
+      delete application.password;
+      delete application.confirm_password;
+      delete application.company;
+      if (!/^[0-9a-f-]{36}$/i.test(userId) || !/^\S+@\S+\.\S+$/.test(email))
+        throw new Error("The student account details are invalid. Please try again.");
+      const client = db();
+      const { data: authResult, error: authError } = await client.auth.admin.getUserById(userId);
+      if (authError || !authResult?.user || String(authResult.user.email || "").toLowerCase() !== email)
+        throw new Error("We could not verify the student account. Please try registering again.");
+      const { data: profile, error: profileError } = await client.from("profiles")
+        .select("id,role,approval_status,email")
+        .eq("id", userId).single();
+      if (profileError || !profile || profile.role !== "student" || profile.approval_status !== "pending")
+        throw new Error("This account is not eligible for a new student application. Please use the student login page.");
+      const fullName = `${clean(application.first_name).trim()} ${clean(application.last_name).trim()}`.trim();
+      const { error: appError } = await client.from("student_applications").insert({
+        user_id: userId, email, full_name: fullName, data: application, status: "pending",
+      });
+      if (appError) {
+        if (appError.code === "23505") throw new Error("An application already exists for this account. Please wait for approval or sign in.");
+        throw appError;
+      }
+      const { error: leadError } = await client.from("leads").insert({
+        kind: "registrations", data: application, status: "new", exported: false,
+      });
+      if (leadError) {
+        await client.from("student_applications").delete().eq("user_id", userId);
+        throw leadError;
+      }
+      try {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: env("EMAIL_FROM"),
+            to: [process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com"],
+            subject: "New student application received",
+            text: `A new student application has been submitted by ${fullName || email}. Please review it in the Student Access section of your admin dashboard.`,
+          }),
+        });
+      } catch (mailError) { console.error("Student application notification failed:", mailError?.message); }
+      return send(res, 200, { ok: true, data: { accepted: true, status: "pending" } });
+    }
+
     if (action === "library.get") {
+      const hasBearer = (req.headers.authorization || "").startsWith("Bearer ");
       let query = db();
-      let includeHidden = false;
-      if ((req.headers.authorization || "").startsWith("Bearer ")) {
+      let includePlayback = false;
+      let sessionRole = "visitor";
+      if (hasBearer) {
         const session = await authUser(req, false);
         query = session.client;
-        includeHidden = true;
+        includePlayback = true;
+        sessionRole = session.profile.role;
       }
-      const { data: phases, error: pe } = await query
-        .from("phases")
-        .select("*")
-        .order("sort_order");
-      let videoQuery = query.from("videos").select("*").order("sort_order");
-      if (!includeHidden) videoQuery = videoQuery.eq("published", true);
+      const { data: phases, error: pe } = await query.from("phases").select("*").order("sort_order");
+      let videoQuery = query.from("videos").select(includePlayback ? "*" : "id,title,description,thumbnail_url,phase_id,duration,sort_order,published,featured").order("sort_order");
+      videoQuery = videoQuery.eq("published", true);
       const { data: videos, error: ve } = await videoQuery;
       if (pe) throw pe;
       if (ve) throw ve;
       return send(res, 200, {
         ok: true,
         data: {
-          phases: phases.map((p) => ({
-            id: p.id,
-            name: p.name,
-            description: p.description || "",
-            color: p.color,
-            icon: p.icon,
-            order: p.sort_order,
-          })),
-          videos: videos.map((v) => ({
+          phases: (phases || []).map((p) => ({ id: p.id, name: p.name, description: p.description || "", color: p.color, icon: p.icon, order: p.sort_order })),
+          videos: (videos || []).map((v) => ({
             id: v.id,
-            provider: v.provider,
-            youtubeId: v.youtube_id,
-            cloudinaryPublicId: v.cloudinary_public_id,
-            videoUrl: v.video_url,
+            ...(includePlayback ? {
+              provider: v.provider,
+              youtubeId: sessionRole === "student" ? null : v.youtube_id,
+              cloudinaryPublicId: v.cloudinary_public_id,
+              videoUrl: sessionRole === "student" && v.provider === "cloudinary" ? null : v.video_url,
+            } : {}),
             thumbnail: v.thumbnail_url,
             title: v.title,
             description: v.description || "",
@@ -272,7 +332,9 @@ This email is an automated notification. No registration details are included.`,
       adminNewsletterActions.has(action) ||
         action === "staff.list" ||
         action === "staff.save" ||
-        action === "staff.setActive",
+        action === "staff.setActive" ||
+        action === "students.list" ||
+        action === "students.setStatus",
     );
     if (action === "me") return send(res, 200, { ok: true, data: profile });
 
@@ -560,6 +622,33 @@ This email is an automated notification. No registration details are included.`,
         },
       });
     }
+    if (action === "students.list") {
+      const { data: applications, error } = await client.from("student_applications")
+        .select("id,user_id,email,full_name,data,status,created_at,reviewed_at")
+        .order("created_at", { ascending: false }).limit(5000);
+      if (error) throw error;
+      return send(res, 200, { ok: true, data: (applications || []).map((r) => ({
+        id: r.user_id, applicationId: r.id, email: r.email, name: r.full_name,
+        data: r.data || {}, status: r.status, createdAt: r.created_at, reviewedAt: r.reviewed_at,
+      })) });
+    }
+    if (action === "students.setStatus") {
+      const id = String(data.id || "");
+      const status = String(data.status || "");
+      if (!/^[0-9a-f-]{36}$/i.test(id) || !["approved", "denied", "revoked"].includes(status))
+        throw new Error("Choose a valid student and access status.");
+      const active = status === "approved";
+      const { error: profileError } = await client.from("profiles")
+        .update({ role: "student", active, approval_status: status })
+        .eq("id", id).eq("role", "student");
+      if (profileError) throw profileError;
+      const { error: appError } = await client.from("student_applications")
+        .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user.id })
+        .eq("user_id", id);
+      if (appError) throw appError;
+      return send(res, 200, { ok: true, data: { updated: true, status } });
+    }
+
     if (action === "staff.list") {
       const { data: profiles, error } = await client
         .from("profiles")
@@ -597,6 +686,7 @@ This email is an automated notification. No registration details are included.`,
           name: clean(data.name),
           username: clean(data.username || email),
           role: data.role === "admin" ? "admin" : "staff",
+          approval_status: "approved",
         };
         const { error } = await client
           .from("profiles")
@@ -623,6 +713,7 @@ This email is an automated notification. No registration details are included.`,
           username: clean(data.username || email),
           role: data.role === "admin" ? "admin" : "staff",
           active: true,
+          approval_status: "approved",
         });
         if (pError) throw pError;
       }

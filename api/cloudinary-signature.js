@@ -35,7 +35,11 @@ export default async function handler(req, res) {
       resourceType === "image"
         ? "pattern-and-produce/thumbnails"
         : "pattern-and-produce/tutorials";
-    const toSign = `folder=${folder}&timestamp=${timestamp}${env("CLOUDINARY_API_SECRET")}`;
+    const deliveryType = resourceType === "video" ? "authenticated" : "upload";
+    const paramsToSign = resourceType === "video"
+      ? `folder=${folder}&timestamp=${timestamp}&type=authenticated`
+      : `folder=${folder}&timestamp=${timestamp}`;
+    const toSign = `${paramsToSign}${env("CLOUDINARY_API_SECRET")}`;
     const signature = createHash("sha1").update(toSign).digest("hex");
     return send(res, 200, {
       ok: true,
@@ -46,6 +50,7 @@ export default async function handler(req, res) {
         cloudName: env("CLOUDINARY_CLOUD_NAME"),
         apiKey: env("CLOUDINARY_API_KEY"),
         resourceType,
+        deliveryType,
       },
     });
   } catch (e) {

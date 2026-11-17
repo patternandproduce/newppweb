@@ -1693,3 +1693,215 @@ ul.clean strong {
     font-size: 1.9rem;
   }
 }
+
+
+
+/* ========================================
+   FASHIONTECH SERVICE ACCORDION
+======================================== */
+
+
+/* ========================================
+   FASHIONTECH SERVICE CARDS
+======================================== */
+
+.service-grid {
+  align-items: stretch;
+}
+
+.service-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.service-card h3 {
+  margin-bottom: 26px;
+}
+
+.service-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.service-item {
+  border-top: 1px solid rgba(255, 255, 255, .15);
+}
+
+.service-trigger,
+.service-static {
+  width: 100%;
+  min-height: 56px;
+  padding: 13px 0;
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.service-trigger {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.service-static {
+  cursor: default;
+}
+
+/* Diamond markers */
+.service-marker {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  display: block;
+
+  background: var(--accent, #c9b99a);
+  transform: rotate(45deg);
+  opacity: .9;
+}
+
+.service-title {
+  flex: 1;
+  min-width: 0;
+
+  font-size: 11px;
+  line-height: 1.65;
+  font-weight: 500;
+  letter-spacing: .055em;
+}
+
+/* Plus / minus icon */
+.service-plus {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  position: relative;
+  opacity: .8;
+}
+
+.service-plus::before,
+.service-plus::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+  transition: transform .25s ease;
+}
+
+.service-plus::before {
+  width: 13px;
+  height: 1px;
+}
+
+.service-plus::after {
+  width: 1px;
+  height: 13px;
+}
+
+/* Plus becomes minus */
+.service-trigger[aria-expanded="true"] .service-plus::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+/* Hover and focus */
+.service-trigger:hover {
+  opacity: .7;
+}
+
+.service-trigger:focus-visible {
+  outline: 1px solid var(--accent, #c9b99a);
+  outline-offset: 4px;
+}
+
+/* Expanded description */
+.service-description {
+  padding: 0 22px 18px 20px;
+  color: rgba(255, 255, 255, .7);
+  font-size: 13px;
+  line-height: 1.8;
+  animation: serviceReveal .25s ease;
+}
+
+.service-description ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.service-description li {
+  position: relative;
+  padding-left: 15px;
+  margin-bottom: 6px;
+}
+
+.service-description li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  opacity: .65;
+}
+
+@keyframes serviceReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tablet and mobile */
+@media (max-width: 900px) {
+  .service-card h3 {
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .service-trigger,
+  .service-static {
+    min-height: 52px;
+  }
+
+  .service-title {
+    font-size: 10px;
+  }
+
+  .service-description {
+    font-size: 12px;
+    padding-bottom: 15px;
+  }
+}
+
+/* Brand mark beside the existing Pattern & Produce navbar name */
+.brand-lockup{display:inline-flex;align-items:center;gap:11px;white-space:nowrap}
+.brand-lockup img{display:block;width:38px;height:38px;object-fit:contain;flex:none}
+.brand-lockup span{display:block;font-size:inherit;line-height:1.05}
+@media(max-width:860px){.brand-lockup img{width:32px;height:32px}.brand-lockup{gap:8px}.brand-lockup span{font-size:1.12rem}}
+
+/* Student login and application guidance */
+.student-access-page{min-height:65vh;display:grid;place-items:center;padding-top:70px;padding-bottom:80px}
+.student-access-card{width:min(560px,100%);padding:clamp(24px,5vw,48px);border:1px solid var(--line);background:var(--card)}
+.student-access-card h1{margin:10px 0 12px}
+.student-access-card>.lead{margin:0 0 28px;font-size:.98rem}
+.student-login-form{display:grid;gap:18px}
+.student-login-form label{display:grid;gap:7px;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}
+.student-login-form input{width:100%;min-width:0;padding:13px 14px;border:1px solid var(--line);border-radius:0;background:var(--bg);color:var(--ink);font:inherit;letter-spacing:0;text-transform:none}
+.student-login-form button{justify-content:center;width:100%;margin-top:4px}
+.student-form-error{margin:0;color:#b64040;font-size:.88rem;line-height:1.5}
+.student-register-prompt{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:26px;padding-top:22px;border-top:1px solid var(--line);font-size:.9rem}
+.student-back{display:inline-block;margin-top:24px;color:var(--mute);font-size:.82rem;text-decoration:none}
+.form-hint{margin:-8px 0 0;color:var(--mute);font-size:.78rem;line-height:1.5;white-space:normal}
