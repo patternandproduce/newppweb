@@ -76,11 +76,9 @@ export default function Home() {
         {/* <div className="eyebrow">
           Fashion Technology &middot; Manufacturing &middot; Skills
         </div> */}
-        <h1>Where fashion design meets production.</h1>
+        <h1>Where ideation comes to life.</h1>
         <p className="lead">
-          Pattern &amp; Produce helps fashion brands turn ideas into precise,
-          production-ready garments, and trains the people who make them.
-          [Replace with your own words]
+          The intersectional operation of technology-enabled manufacturing, industry-aligned workforce development, and near-market production.
         </p>
         <Link className="btn" to="/contact?type=consult">
           Book a consultation
