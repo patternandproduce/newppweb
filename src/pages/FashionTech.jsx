@@ -43,7 +43,7 @@ const serviceGroups = [
     title: "Manufacturing Consultation",
     items: [
       {
-        title: "GARMENT MANUFACTURING OPERATION FACILITY SETUP",
+        title: "GARMENT MANUFACTURING OPERATIONAL FACILITY SETUP",
       },
       {
         title: "EQUIPMENT PURCHASE ADVISORY",
