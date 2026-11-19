@@ -49,7 +49,7 @@ const serviceGroups = [
         title: "EQUIPMENT PURCHASE ADVISORY",
       },
       {
-        title: "B.O.T. OPERATIONAL TRAINING MODEL",
+        title: "B.O.T. TRAINING MODEL",
       },
     ],
   },

@@ -24,7 +24,7 @@ export default function Manufacturing() {
           <h2>What we offer</h2>
           <div className="grid">
             <div className="card">
-              <h3>B2B Fashion Manufacturing</h3>
+              <h3>B2B Garment Manufacturing</h3>
               <p>
                 Small-batch to bulk production with quality control at every
                 stage.
