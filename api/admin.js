@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { send, requireMethod, env } from "../server/http.js";
+import { buildStudentApplicationEmail } from "../server/email-templates/student-application-notification.js";
 
 const db = () =>
   createClient(env("SUPABASE_URL"), env("SUPABASE_SECRET_KEY"), {
@@ -14,8 +15,12 @@ const formTables = {
   contacts: "contact_submissions",
   checklist: "checklist_requests",
 };
-const contactTypeFilters = { training: "learn", consultations: "biz", quotes: "quote" };
-const legacyLeadKind = (kind) => kind === "training" ? "contacts" : kind;
+const contactTypeFilters = {
+  training: "learn",
+  consultations: "biz",
+  quotes: "quote",
+};
+const legacyLeadKind = (kind) => (kind === "training" ? "contacts" : kind);
 const leadKinds = new Set(["registrations", ...Object.keys(formTables)]);
 const clean = (v) => String(v ?? "").slice(0, 10000);
 
@@ -42,7 +47,9 @@ async function authUser(req, adminOnly = false) {
       .eq("user_id", user.id)
       .maybeSingle();
     if (applicationError || !application)
-      throw new Error("Your account is not registered as staff or an applicant.");
+      throw new Error(
+        "Your account is not registered as staff or an applicant.",
+      );
     profile = {
       id: user.id,
       email: application.email,
@@ -53,10 +60,11 @@ async function authUser(req, adminOnly = false) {
       approval_status: application.status,
     };
   }
-  if (!profile.active)
-    throw new Error("Your account is not active.");
+  if (!profile.active) throw new Error("Your account is not active.");
   if (profile.role === "student" && profile.approval_status !== "approved")
-    throw new Error("Your student account is awaiting approval or is not authorised.");
+    throw new Error(
+      "Your student account is awaiting approval or is not authorised.",
+    );
   if (adminOnly && profile.role !== "admin")
     throw new Error("Only administrators can perform this action.");
   return { client, user, profile };
@@ -82,66 +90,148 @@ export default async function handler(req, res) {
       const accessToken = header.startsWith("Bearer ") ? header.slice(7) : "";
       if (!accessToken) throw new Error("Please sign in to continue.");
       const client = db();
-      const { data: { user }, error: userError } = await client.auth.getUser(accessToken);
-      if (userError || !user) throw new Error("Your session is invalid or expired.");
-      const { data: staffProfile } = await client.from("profiles")
+      const {
+        data: { user },
+        error: userError,
+      } = await client.auth.getUser(accessToken);
+      if (userError || !user)
+        throw new Error("Your session is invalid or expired.");
+      const { data: staffProfile } = await client
+        .from("profiles")
         .select("id,email,name,role,active,approval_status")
-        .eq("id", user.id).maybeSingle();
+        .eq("id", user.id)
+        .maybeSingle();
       if (staffProfile) {
-        return send(res, 200, { ok: true, data: { role: staffProfile.role, active: staffProfile.active, approvalStatus: staffProfile.approval_status || "approved" } });
+        return send(res, 200, {
+          ok: true,
+          data: {
+            role: staffProfile.role,
+            active: staffProfile.active,
+            approvalStatus: staffProfile.approval_status || "approved",
+          },
+        });
       }
-      const { data: application, error } = await client.from("student_applications")
+      const { data: application, error } = await client
+        .from("student_applications")
         .select("user_id,email,full_name,status")
-        .eq("user_id", user.id).maybeSingle();
-      if (error || !application) throw new Error("Your student application could not be found.");
-      return send(res, 200, { ok: true, data: { role: "student", active: application.status === "approved", approvalStatus: application.status } });
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error || !application)
+        throw new Error("Your student application could not be found.");
+      return send(res, 200, {
+        ok: true,
+        data: {
+          role: "student",
+          active: application.status === "approved",
+          approvalStatus: application.status,
+        },
+      });
     }
 
     if (action === "student.application.submit") {
       const userId = String(data.userId || "");
-      const email = String(data.email || "").trim().toLowerCase();
-      const submitted = data.data && typeof data.data === "object" ? data.data : {};
+      const email = String(data.email || "")
+        .trim()
+        .toLowerCase();
+      const submitted =
+        data.data && typeof data.data === "object" ? data.data : {};
       const application = { ...submitted };
       delete application.password;
       delete application.confirm_password;
       delete application.company;
       delete application.website_url;
       if (!/^[0-9a-f-]{36}$/i.test(userId) || !/^\S+@\S+\.\S+$/.test(email))
-        throw new Error("The student account details are invalid. Please try again.");
+        throw new Error(
+          "The student account details are invalid. Please try again.",
+        );
       const client = db();
-      const { data: authResult, error: authError } = await client.auth.admin.getUserById(userId);
-      if (authError || !authResult?.user || String(authResult.user.email || "").toLowerCase() !== email)
-        throw new Error("We could not verify the student account. Please try registering again.");
-      const { data: existing, error: existingError } = await client.from("student_applications")
-        .select("id,status").eq("user_id", userId).maybeSingle();
+      const { data: authResult, error: authError } =
+        await client.auth.admin.getUserById(userId);
+      if (
+        authError ||
+        !authResult?.user ||
+        String(authResult.user.email || "").toLowerCase() !== email
+      )
+        throw new Error(
+          "We could not verify the student account. Please try registering again.",
+        );
+      const { data: existing, error: existingError } = await client
+        .from("student_applications")
+        .select("id,status")
+        .eq("user_id", userId)
+        .maybeSingle();
       if (existingError) throw existingError;
-      if (existing) throw new Error("An application already exists for this account. Please sign in or contact us for help.");
-      const fullName = `${clean(application.first_name).trim()} ${clean(application.last_name).trim()}`.trim();
-      const { error: appError } = await client.from("student_applications").insert({
-        user_id: userId, email, full_name: fullName, data: application, status: "pending",
-      });
+      if (existing)
+        throw new Error(
+          "An application already exists for this account. Please sign in or contact us for help.",
+        );
+      const fullName =
+        `${clean(application.first_name).trim()} ${clean(application.last_name).trim()}`.trim();
+      const { error: appError } = await client
+        .from("student_applications")
+        .insert({
+          user_id: userId,
+          email,
+          full_name: fullName,
+          data: application,
+          status: "pending",
+        });
       if (appError) {
         if (appError.code === "23505")
-          throw new Error("An application already exists for this account. Please sign in or contact us for help.");
+          throw new Error(
+            "An application already exists for this account. Please sign in or contact us for help.",
+          );
         // Do not leave an Auth account behind when its application could not be saved.
-        const { error: cleanupError } = await client.auth.admin.deleteUser(userId);
-        if (cleanupError) console.error("Could not roll back incomplete student account:", cleanupError.message);
+        const { error: cleanupError } =
+          await client.auth.admin.deleteUser(userId);
+        if (cleanupError)
+          console.error(
+            "Could not roll back incomplete student account:",
+            cleanupError.message,
+          );
         throw appError;
       }
+
       try {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
-          headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${env("RESEND_API_KEY")}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             from: env("EMAIL_FROM"),
-            to: [process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com"],
-            subject: "New student application received",
-            text: `A new student application has been submitted by ${fullName || email}. Please review it in the Student Access section of your admin dashboard.`,
+            to: [
+              process.env.CONTACT_NOTIFY_EMAIL || "root@patternandproduce.com",
+            ],
+            subject: `New Student Registration – ${fullName || email}`,
+            html: buildStudentApplicationEmail({
+              fullName,
+              email,
+              application,
+              submittedAt: application.submitted_at,
+              adminUrl: "https://www.patternandproduce.com/admin",
+            }),
           }),
         });
-        if (!response.ok) console.error("Student application notification failed:", (await response.text()).slice(0, 300));
-      } catch (mailError) { console.error("Student application notification failed:", mailError?.message); }
-      return send(res, 200, { ok: true, data: { accepted: true, status: "pending" } });
+
+        if (!response.ok) {
+          console.error(
+            "Student application notification failed:",
+            (await response.text()).slice(0, 500),
+          );
+        }
+      } catch (mailError) {
+        console.error(
+          "Student application notification failed:",
+          mailError?.message,
+        );
+      }
+
+      return send(res, 200, {
+        ok: true,
+        data: { accepted: true, status: "pending" },
+      });
     }
 
     if (action === "library.get") {
@@ -155,8 +245,18 @@ export default async function handler(req, res) {
         includePlayback = true;
         sessionRole = session.profile.role;
       }
-      const { data: phases, error: pe } = await query.from("phases").select("*").order("sort_order");
-      let videoQuery = query.from("videos").select(includePlayback ? "*" : "id,title,description,thumbnail_url,phase_id,duration,sort_order,published,featured").order("sort_order");
+      const { data: phases, error: pe } = await query
+        .from("phases")
+        .select("*")
+        .order("sort_order");
+      let videoQuery = query
+        .from("videos")
+        .select(
+          includePlayback
+            ? "*"
+            : "id,title,description,thumbnail_url,phase_id,duration,sort_order,published,featured",
+        )
+        .order("sort_order");
       videoQuery = videoQuery.eq("published", true);
       const { data: videos, error: ve } = await videoQuery;
       if (pe) throw pe;
@@ -164,15 +264,27 @@ export default async function handler(req, res) {
       return send(res, 200, {
         ok: true,
         data: {
-          phases: (phases || []).map((p) => ({ id: p.id, name: p.name, description: p.description || "", color: p.color, icon: p.icon, order: p.sort_order })),
+          phases: (phases || []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description || "",
+            color: p.color,
+            icon: p.icon,
+            order: p.sort_order,
+          })),
           videos: (videos || []).map((v) => ({
             id: v.id,
-            ...(includePlayback ? {
-              provider: v.provider,
-              youtubeId: sessionRole === "student" ? null : v.youtube_id,
-              cloudinaryPublicId: v.cloudinary_public_id,
-              videoUrl: sessionRole === "student" && v.provider === "cloudinary" ? null : v.video_url,
-            } : {}),
+            ...(includePlayback
+              ? {
+                  provider: v.provider,
+                  youtubeId: sessionRole === "student" ? null : v.youtube_id,
+                  cloudinaryPublicId: v.cloudinary_public_id,
+                  videoUrl:
+                    sessionRole === "student" && v.provider === "cloudinary"
+                      ? null
+                      : v.video_url,
+                }
+              : {}),
             thumbnail: v.thumbnail_url,
             title: v.title,
             description: v.description || "",
@@ -189,19 +301,31 @@ export default async function handler(req, res) {
       const kind = data.kind;
       const table = formTables[kind];
       if (!table) throw new Error("Invalid submission type.");
-      const payload = data.data && typeof data.data === "object" ? data.data : {};
-      if (payload.website_url) return send(res, 200, { ok: true, data: { accepted: true, spam: true } });
-      const email = String(payload.email || "").trim().toLowerCase();
-      if (kind === "checklist" && !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Please enter a valid email address.");
-      const { data: saved, error } = await db().from(table)
-        .insert({ data: payload, status: "new", exported: false }).select("id").single();
+      const payload =
+        data.data && typeof data.data === "object" ? data.data : {};
+      if (payload.website_url)
+        return send(res, 200, {
+          ok: true,
+          data: { accepted: true, spam: true },
+        });
+      const email = String(payload.email || "")
+        .trim()
+        .toLowerCase();
+      if (kind === "checklist" && !/^\S+@\S+\.\S+$/.test(email))
+        throw new Error("Please enter a valid email address.");
+      const { data: saved, error } = await db()
+        .from(table)
+        .insert({ data: payload, status: "new", exported: false })
+        .select("id")
+        .single();
       if (error) throw error;
 
       // The checklist request is stored first, then the promised checklist is emailed to the visitor.
       let checklistEmailSent = null;
       if (kind === "checklist") {
         const checklistText = [
-          "PATTERN & PRODUCE — TECH PACK CHECKLIST", "",
+          "PATTERN & PRODUCE — TECH PACK CHECKLIST",
+          "",
           "Before sending a garment into production, make sure your tech pack includes:",
           "1. Style name, style number, season and revision date.",
           "2. Front, back and relevant detail technical flats.",
@@ -213,18 +337,32 @@ export default async function handler(req, res) {
           "8. Colourways, artwork, print/embroidery placement and dimensions.",
           "9. Label, packaging, folding and finishing instructions.",
           "10. Sample comments, approved references and revision history.",
-          "", "Use this list as a final hand-off check and ensure every specification is clear and approved before bulk production.",
-          "", "Pattern & Produce Limited"
+          "",
+          "Use this list as a final hand-off check and ensure every specification is clear and approved before bulk production.",
+          "",
+          "Pattern & Produce Limited",
         ].join("\n");
         checklistEmailSent = false;
         try {
           const response = await fetch("https://api.resend.com/emails", {
             method: "POST",
-            headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ from: env("EMAIL_FROM"), to: [email], subject: "Your Pattern & Produce Tech Pack Checklist", text: checklistText }),
+            headers: {
+              Authorization: `Bearer ${env("RESEND_API_KEY")}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: env("EMAIL_FROM"),
+              to: [email],
+              subject: "Your Pattern & Produce Tech Pack Checklist",
+              text: checklistText,
+            }),
           });
           checklistEmailSent = response.ok;
-          if (!response.ok) console.error("Checklist delivery failed:", (await response.text()).slice(0, 500));
+          if (!response.ok)
+            console.error(
+              "Checklist delivery failed:",
+              (await response.text()).slice(0, 500),
+            );
         } catch (mailError) {
           console.error("Checklist delivery failed:", mailError?.message);
         }
@@ -233,17 +371,31 @@ export default async function handler(req, res) {
       try {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
-          headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${env("RESEND_API_KEY")}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             from: env("EMAIL_FROM"),
-            to: [process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com"],
+            to: [
+              process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com",
+            ],
             subject: `New ${kind} form submission received`,
             text: `A new ${kind} submission has been received. Review it in the corresponding admin section.\nEmail: ${email || "Not provided"}\nRecord ID: ${saved.id}`,
           }),
         });
-        if (!response.ok) console.error("Form notification failed:", (await response.text()).slice(0, 300));
-      } catch (mailError) { console.error("Form notification failed:", mailError?.message); }
-      return send(res, 200, { ok: true, data: { accepted: true, emailSent: checklistEmailSent, id: saved.id } });
+        if (!response.ok)
+          console.error(
+            "Form notification failed:",
+            (await response.text()).slice(0, 300),
+          );
+      } catch (mailError) {
+        console.error("Form notification failed:", mailError?.message);
+      }
+      return send(res, 200, {
+        ok: true,
+        data: { accepted: true, emailSent: checklistEmailSent, id: saved.id },
+      });
     }
 
     if (action === "visit") {
@@ -296,7 +448,10 @@ export default async function handler(req, res) {
       const city = clean(data.city).trim().slice(0, 100) || null;
       const country = clean(data.country).trim().slice(0, 100) || null;
       const interests = Array.isArray(data.interests)
-        ? data.interests.map((x) => clean(x).trim().slice(0, 80)).filter(Boolean).slice(0, 20)
+        ? data.interests
+            .map((x) => clean(x).trim().slice(0, 80))
+            .filter(Boolean)
+            .slice(0, 20)
         : [];
 
       // Basic email validation
@@ -361,7 +516,7 @@ export default async function handler(req, res) {
         data: { message: "Subscription successful." },
       });
     }
-//.....
+    //.....
     const adminNewsletterActions = new Set([
       "newsletter.list",
       "newsletter.update",
@@ -382,7 +537,9 @@ export default async function handler(req, res) {
     if (action === "newsletter.list") {
       const { data: rows, error } = await client
         .from("newsletter_subscribers")
-        .select("id,email,city,country,interests,tags,created_at,unsubscribed_at")
+        .select(
+          "id,email,city,country,interests,tags,created_at,unsubscribed_at",
+        )
         .order("created_at", { ascending: false })
         .limit(10000);
       if (error) throw error;
@@ -394,47 +551,95 @@ export default async function handler(req, res) {
       const patch = {
         city: clean(data.city).trim().slice(0, 100) || null,
         country: clean(data.country).trim().slice(0, 100) || null,
-        interests: Array.isArray(data.interests) ? data.interests.map((x) => clean(x).trim().slice(0, 80)).filter(Boolean).slice(0, 20) : [],
-        tags: Array.isArray(data.tags) ? data.tags.map((x) => clean(x).trim().slice(0, 50)).filter(Boolean).slice(0, 30) : [],
+        interests: Array.isArray(data.interests)
+          ? data.interests
+              .map((x) => clean(x).trim().slice(0, 80))
+              .filter(Boolean)
+              .slice(0, 20)
+          : [],
+        tags: Array.isArray(data.tags)
+          ? data.tags
+              .map((x) => clean(x).trim().slice(0, 50))
+              .filter(Boolean)
+              .slice(0, 30)
+          : [],
       };
-      const { error } = await client.from("newsletter_subscribers").update(patch).eq("id", data.id);
+      const { error } = await client
+        .from("newsletter_subscribers")
+        .update(patch)
+        .eq("id", data.id);
       if (error) throw error;
       return send(res, 200, { ok: true, data: { updated: true } });
     }
 
     if (action === "newsletter.delete") {
       if (!data.id) throw new Error("Subscriber ID is required.");
-      const { error } = await client.from("newsletter_subscribers").delete().eq("id", data.id);
+      const { error } = await client
+        .from("newsletter_subscribers")
+        .delete()
+        .eq("id", data.id);
       if (error) throw error;
       return send(res, 200, { ok: true, data: { deleted: true } });
     }
 
     if (action === "newsletter.send") {
-      const subject = clean(data.subject).replace(/[\r\n]+/g, " ").trim().slice(0, 200);
+      const subject = clean(data.subject)
+        .replace(/[\r\n]+/g, " ")
+        .trim()
+        .slice(0, 200);
       const body = clean(data.body).trim();
       const imageUrl = clean(data.imageUrl).trim();
-      if (!subject || !body) throw new Error("Add an email subject and message.");
-      if (imageUrl && !/^https:\/\//i.test(imageUrl)) throw new Error("The newsletter image must use a secure HTTPS URL.");
-      if (!Array.isArray(data.ids) || !data.ids.length || data.ids.length > 10000)
+      if (!subject || !body)
+        throw new Error("Add an email subject and message.");
+      if (imageUrl && !/^https:\/\//i.test(imageUrl))
+        throw new Error("The newsletter image must use a secure HTTPS URL.");
+      if (
+        !Array.isArray(data.ids) ||
+        !data.ids.length ||
+        data.ids.length > 10000
+      )
         throw new Error("Select at least one subscriber before sending.");
-      let query = client.from("newsletter_subscribers")
-        .select("id,email,city,country,interests,tags,created_at,unsubscribe_token")
+      let query = client
+        .from("newsletter_subscribers")
+        .select(
+          "id,email,city,country,interests,tags,created_at,unsubscribe_token",
+        )
         .is("unsubscribed_at", null)
         .order("created_at", { ascending: true });
-      if (Array.isArray(data.ids) && data.ids.length) query = query.in("id", data.ids);
+      if (Array.isArray(data.ids) && data.ids.length)
+        query = query.in("id", data.ids);
       const { data: recipients, error } = await query.limit(10000);
       if (error) throw error;
-      const safeRecipients = (recipients || []).filter((r) => /^\S+@\S+\.\S+$/.test(r.email || ""));
-      if (!safeRecipients.length) throw new Error("There are no active subscribers in this selection.");
-      const escapeHtml = (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+      const safeRecipients = (recipients || []).filter((r) =>
+        /^\S+@\S+\.\S+$/.test(r.email || ""),
+      );
+      if (!safeRecipients.length)
+        throw new Error("There are no active subscribers in this selection.");
+      const escapeHtml = (value) =>
+        String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
       const origin = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}`;
-      const htmlBody = body.split(/\r?\n/).map((line) => line ? `<p style=\"margin:0 0 14px;line-height:1.65\">${escapeHtml(line)}</p>` : `<div style=\"height:8px\"></div>`).join("");
+      const htmlBody = body
+        .split(/\r?\n/)
+        .map((line) =>
+          line
+            ? `<p style=\"margin:0 0 14px;line-height:1.65\">${escapeHtml(line)}</p>`
+            : `<div style=\"height:8px\"></div>`,
+        )
+        .join("");
       const apiKey = env("RESEND_API_KEY");
-      let sent = 0, failed = 0;
+      let sent = 0,
+        failed = 0;
       for (let i = 0; i < safeRecipients.length; i += 100) {
         const batch = safeRecipients.slice(i, i + 100).map((r) => {
           const unsubscribe = `${origin}/api/newsletter-unsubscribe?token=${encodeURIComponent(r.unsubscribe_token || "")}`;
-          const image = imageUrl ? `<img src=\"${escapeHtml(imageUrl)}\" alt=\"\" style=\"display:block;width:100%;max-width:640px;height:auto;margin:0 0 24px;border:0\" />` : "";
+          const image = imageUrl
+            ? `<img src=\"${escapeHtml(imageUrl)}\" alt=\"\" style=\"display:block;width:100%;max-width:640px;height:auto;margin:0 0 24px;border:0\" />`
+            : "";
           return {
             from: env("EMAIL_FROM"),
             to: [r.email],
@@ -446,14 +651,28 @@ export default async function handler(req, res) {
         try {
           const response = await fetch("https://api.resend.com/emails/batch", {
             method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
             body: JSON.stringify(batch),
           });
-          if (!response.ok) { failed += batch.length; console.error("Newsletter batch failed:", (await response.text()).slice(0, 500)); }
-          else sent += batch.length;
-        } catch (mailError) { failed += batch.length; console.error("Newsletter batch error:", mailError?.message); }
+          if (!response.ok) {
+            failed += batch.length;
+            console.error(
+              "Newsletter batch failed:",
+              (await response.text()).slice(0, 500),
+            );
+          } else sent += batch.length;
+        } catch (mailError) {
+          failed += batch.length;
+          console.error("Newsletter batch error:", mailError?.message);
+        }
       }
-      return send(res, 200, { ok: true, data: { sent, failed, total: safeRecipients.length } });
+      return send(res, 200, {
+        ok: true,
+        data: { sent, failed, total: safeRecipients.length },
+      });
     }
 
     if (action === "library.save") {
@@ -534,20 +753,48 @@ export default async function handler(req, res) {
     if (action === "leads.list") {
       if (!leadKinds.has(data.kind)) throw new Error("Invalid lead category.");
       if (data.kind === "registrations") {
-        const { data: rows, error } = await client.from("leads").select("*").eq("kind", "registrations").order("created_at", { ascending: false });
+        const { data: rows, error } = await client
+          .from("leads")
+          .select("*")
+          .eq("kind", "registrations")
+          .order("created_at", { ascending: false });
         if (error) throw error;
         return send(res, 200, { ok: true, data: rows.map(asLead) });
       }
       const table = formTables[data.kind];
-      let query = client.from(table).select("*").order("created_at", { ascending: false });
-      if (contactTypeFilters[data.kind]) query = query.eq("data->>type", contactTypeFilters[data.kind]);
+      let query = client
+        .from(table)
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (contactTypeFilters[data.kind])
+        query = query.eq("data->>type", contactTypeFilters[data.kind]);
       const { data: rows, error } = await query;
       if (error) throw error;
-      const { data: legacy, error: legacyError } = await client.from("leads").select("*").eq("kind", legacyLeadKind(data.kind)).order("created_at", { ascending: false });
+      const { data: legacy, error: legacyError } = await client
+        .from("leads")
+        .select("*")
+        .eq("kind", legacyLeadKind(data.kind))
+        .order("created_at", { ascending: false });
       if (legacyError) throw legacyError;
-      const legacyRows = (legacy || []).filter((r) => !contactTypeFilters[data.kind] || r.data?.type === contactTypeFilters[data.kind]);
-      const current = (rows || []).map((r) => ({ id: r.id, kind: data.kind, data: r.data || {}, status: r.status, exported: r.exported, createdAt: r.created_at }));
-      return send(res, 200, { ok: true, data: [...current, ...legacyRows.map(asLead)].sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))) });
+      const legacyRows = (legacy || []).filter(
+        (r) =>
+          !contactTypeFilters[data.kind] ||
+          r.data?.type === contactTypeFilters[data.kind],
+      );
+      const current = (rows || []).map((r) => ({
+        id: r.id,
+        kind: data.kind,
+        data: r.data || {},
+        status: r.status,
+        exported: r.exported,
+        createdAt: r.created_at,
+      }));
+      return send(res, 200, {
+        ok: true,
+        data: [...current, ...legacyRows.map(asLead)].sort((a, b) =>
+          String(b.createdAt).localeCompare(String(a.createdAt)),
+        ),
+      });
     }
     if (action === "leads.mark") {
       if (
@@ -566,14 +813,25 @@ export default async function handler(req, res) {
       if (!Object.keys(patch).length)
         throw new Error("No valid update provided.");
       if (data.kind === "registrations") {
-        const { error } = await client.from("leads").update(patch).eq("kind", data.kind).in("id", data.ids);
+        const { error } = await client
+          .from("leads")
+          .update(patch)
+          .eq("kind", data.kind)
+          .in("id", data.ids);
         if (error) throw error;
       } else {
         const table = formTables[data.kind];
-        const { error } = await client.from(table).update(patch).in("id", data.ids);
+        const { error } = await client
+          .from(table)
+          .update(patch)
+          .in("id", data.ids);
         if (error) throw error;
         // Also update historical records that were stored in the former shared leads table.
-        const { error: legacyError } = await client.from("leads").update(patch).eq("kind", legacyLeadKind(data.kind)).in("id", data.ids);
+        const { error: legacyError } = await client
+          .from("leads")
+          .update(patch)
+          .eq("kind", legacyLeadKind(data.kind))
+          .in("id", data.ids);
         if (legacyError) throw legacyError;
       }
       return send(res, 200, { ok: true, data: true });
@@ -677,25 +935,47 @@ export default async function handler(req, res) {
       });
     }
     if (action === "students.list") {
-      const { data: applications, error } = await client.from("student_applications")
+      const { data: applications, error } = await client
+        .from("student_applications")
         .select("id,user_id,email,full_name,data,status,created_at,reviewed_at")
-        .order("created_at", { ascending: false }).limit(5000);
+        .order("created_at", { ascending: false })
+        .limit(5000);
       if (error) throw error;
-      return send(res, 200, { ok: true, data: (applications || []).map((r) => ({
-        id: r.user_id, applicationId: r.id, email: r.email, name: r.full_name,
-        data: r.data || {}, status: r.status, createdAt: r.created_at, reviewedAt: r.reviewed_at,
-      })) });
+      return send(res, 200, {
+        ok: true,
+        data: (applications || []).map((r) => ({
+          id: r.user_id,
+          applicationId: r.id,
+          email: r.email,
+          name: r.full_name,
+          data: r.data || {},
+          status: r.status,
+          createdAt: r.created_at,
+          reviewedAt: r.reviewed_at,
+        })),
+      });
     }
     if (action === "students.setStatus") {
       const id = String(data.id || "");
       const status = String(data.status || "");
-      if (!/^[0-9a-f-]{36}$/i.test(id) || !["approved", "denied", "revoked"].includes(status))
+      if (
+        !/^[0-9a-f-]{36}$/i.test(id) ||
+        !["approved", "denied", "revoked"].includes(status)
+      )
         throw new Error("Choose a valid student and access status.");
-      const { data: updatedApplication, error: appError } = await client.from("student_applications")
-        .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user.id })
-        .eq("user_id", id).select("user_id").maybeSingle();
+      const { data: updatedApplication, error: appError } = await client
+        .from("student_applications")
+        .update({
+          status,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user.id,
+        })
+        .eq("user_id", id)
+        .select("user_id")
+        .maybeSingle();
       if (appError) throw appError;
-      if (!updatedApplication) throw new Error("Student application not found.");
+      if (!updatedApplication)
+        throw new Error("Student application not found.");
       return send(res, 200, { ok: true, data: { updated: true, status } });
     }
 
@@ -787,17 +1067,30 @@ export default async function handler(req, res) {
         throw new Error("Select between 1 and 100 recipients.");
       let rows = [];
       if (data.kind === "registrations") {
-        const { data: found, error } = await client.from("leads").select("id,data").eq("kind", data.kind).in("id", data.ids);
+        const { data: found, error } = await client
+          .from("leads")
+          .select("id,data")
+          .eq("kind", data.kind)
+          .in("id", data.ids);
         if (error) throw error;
         rows = found || [];
       } else {
         const table = formTables[data.kind];
-        const { data: found, error } = await client.from(table).select("id,data").in("id", data.ids);
+        const { data: found, error } = await client
+          .from(table)
+          .select("id,data")
+          .in("id", data.ids);
         if (error) throw error;
         rows = found || [];
-        const missingIds = data.ids.filter((id) => !rows.some((r) => r.id === id));
+        const missingIds = data.ids.filter(
+          (id) => !rows.some((r) => r.id === id),
+        );
         if (missingIds.length) {
-          const { data: legacy, error: legacyError } = await client.from("leads").select("id,data").eq("kind", legacyLeadKind(data.kind)).in("id", missingIds);
+          const { data: legacy, error: legacyError } = await client
+            .from("leads")
+            .select("id,data")
+            .eq("kind", legacyLeadKind(data.kind))
+            .in("id", missingIds);
           if (legacyError) throw legacyError;
           rows = rows.concat(legacy || []);
         }
