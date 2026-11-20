@@ -823,6 +823,16 @@ function Dashboard({ session, onLogout }) {
         <div className="ad-top">
           <h1>{titleFor(pathname)}</h1>
           {!API_BASE && <span className="ad-mode">Backend not configured</span>}
+          <button
+            type="button"
+            className="ad-btn ad-refresh"
+            onClick={() => window.location.reload()}
+            aria-label="Refresh current admin page"
+            title="Refresh current admin page"
+          >
+            <span aria-hidden="true">↻</span>
+            Refresh
+          </button>
         </div>
         <Routes>
           <Route index element={<Analytics />} />

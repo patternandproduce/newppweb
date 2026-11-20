@@ -30,7 +30,7 @@ export default function Students() {
     finally { setBusy(""); }
   };
   return <div className="ad-students">
-    <div className="ad-student-intro"><p>Review training applications and control access to the protected tutorial library. Only approved students can sign in and view tutorials.</p><button className="ad-btn" onClick={reload}>Refresh</button></div>
+    <div className="ad-student-intro"><p>Review training applications and control access to the protected tutorial library. Only approved students can sign in and view tutorials.</p></div>
     <div className="ad-student-stats">{["pending", "approved", "denied", "revoked"].map((s) => <button key={s} className={filter === s ? "on" : ""} onClick={() => setFilter(s)}><span>{rows.filter((r) => r.status === s).length}</span>{s[0].toUpperCase() + s.slice(1)}</button>)}</div>
     <div className="ad-bar"><select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="pending">Pending</option><option value="approved">Approved</option><option value="denied">Denied</option><option value="revoked">Revoked</option><option value="all">All applications</option></select><input className="ad-student-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by student name or email" /></div>
     {error && <p className="ad-err">{error}</p>}{notice && <p className="ad-student-notice">{notice}</p>}
