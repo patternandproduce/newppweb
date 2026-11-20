@@ -111,10 +111,6 @@ export function RegisterForm() {
       return;
     }
     const f = fieldsOf(form);
-    if (f.honey) {
-      setState("idle");
-      return;
-    }
     if (!supabaseReady || !supabase) {
       setFormError(
         "Student registration is temporarily unavailable. Please contact us directly.",
@@ -369,20 +365,14 @@ export function RegisterForm() {
           <input id="g-address" name="guardian_address" required />
         </Field>
       </fieldset>
-      <input
-        className="hp"
-        type="text"
-        name="website_url"
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-      />
       <p className={"err" + (state === "error" ? " show" : "")} role="alert">
         {formError || FAIL}
       </p>
       <button
+        type="submit"
         className={"btn" + (state === "busy" ? " busy" : "")}
         disabled={state === "busy"}
+        aria-busy={state === "busy"}
         style={{ marginTop: 0 }}
       >
         {state === "busy" ? "Submitting application…" : "Submit registration"}
