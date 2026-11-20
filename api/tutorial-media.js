@@ -14,10 +14,16 @@ export default async function handler(req, res) {
     const client = db();
     const { data: { user }, error: userError } = await client.auth.getUser(bearer.slice(7));
     if (userError || !user) throw new Error("Your session is invalid or expired.");
-    const { data: profile, error: profileError } = await client.from("profiles")
-      .select("role,active,approval_status").eq("id", user.id).single();
-    if (profileError || !profile?.active || !["admin", "staff"].includes(profile.role) && !(profile.role === "student" && profile.approval_status === "approved"))
-      throw new Error("Only approved students can watch this tutorial.");
+    const { data: profile } = await client.from("profiles")
+      .select("role,active").eq("id", user.id).maybeSingle();
+    let authorised = Boolean(profile?.active && ["admin", "staff"].includes(profile.role));
+    if (!authorised) {
+      const { data: application, error: applicationError } = await client.from("student_applications")
+        .select("status").eq("user_id", user.id).maybeSingle();
+      if (applicationError) throw applicationError;
+      authorised = application?.status === "approved";
+    }
+    if (!authorised) throw new Error("Only approved students can watch this tutorial.");
 
     const publicId = String(req.body?.publicId || "").trim();
     if (!publicId || publicId.length > 500) throw new Error("Tutorial video not found.");

@@ -4,7 +4,7 @@ import { submitForm, fieldsOf, FAIL } from "../lib/api.js";
 import { CONTACT } from "../config.js";
 import { supabase, supabaseReady } from "../lib/supabase.js";
 import { rpc } from "../lib/adminApi.js";
-console.log("FORMS.JSX LOADED - TEST 001");
+
 const LGAS = [
   "Agege",
   "Ajeromi-Ifelodun",
@@ -61,22 +61,9 @@ function useSubmit(kind, build) {
   const onSubmit = (e) => {
     e.preventDefault();
 
-    console.log("FORM SUBMITTED:", kind);
-
     const form = e.currentTarget;
 
     if (!form.checkValidity()) {
-      console.error("FORM VALIDATION FAILED");
-
-      const invalidFields = [...form.elements]
-        .filter((field) => !field.validity?.valid)
-        .map((field) => ({
-          name: field.name,
-          value: field.value,
-          message: field.validationMessage,
-        }));
-
-      console.table(invalidFields);
       form.reportValidity();
       return;
     }
@@ -84,24 +71,18 @@ function useSubmit(kind, build) {
     const f = fieldsOf(form);
 
     if (f.honey) {
-      console.log("Spam protection triggered");
-      setState("done");
+      setState("idle");
       return;
     }
 
     const { data } = build(f, form);
 
-    console.log("SUBMISSION DATA:", data);
-
     setState("busy");
 
     submitForm(kind, data)
-      .then((result) => {
-        console.log("SUBMISSION SUCCESS:", result);
-        setState("done");
-      })
+      .then(() => setState("done"))
       .catch((error) => {
-        console.error("SUBMISSION ERROR:", error);
+        console.error("Form submission failed:", error?.message || error);
         setState("error");
       });
   };
@@ -131,7 +112,7 @@ export function RegisterForm() {
     }
     const f = fieldsOf(form);
     if (f.honey) {
-      setState("done");
+      setState("idle");
       return;
     }
     if (!supabaseReady || !supabase) {
@@ -391,7 +372,7 @@ export function RegisterForm() {
       <input
         className="hp"
         type="text"
-        name="company"
+        name="website_url"
         tabIndex={-1}
         autoComplete="off"
         aria-hidden="true"
@@ -545,7 +526,7 @@ export function ContactForm() {
         <input
           className="hp"
           type="text"
-          name="company"
+          name="website_url"
           tabIndex={-1}
           autoComplete="off"
           aria-hidden="true"
@@ -566,34 +547,42 @@ export function ContactForm() {
 
 export function ChecklistForm() {
   const [state, setState] = useState("idle");
+  const [error, setError] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState("");
   if (state === "done")
-    return <p>Thank you. We will send the checklist to your email.</p>;
-  const onSubmit = (e) => {
+    return <p role="status">{deliveryNote || "Thank you. Your tech pack checklist has been sent to your email."}</p>;
+  const onSubmit = async (e) => {
     e.preventDefault();
-    const em = new FormData(e.currentTarget).get("reply_to");
+    const form = e.currentTarget;
+    if (!form.reportValidity()) return;
+    const fd = new FormData(form);
+    if (String(fd.get("website_url") || "").trim()) return;
+    const email = String(fd.get("reply_to") || "").trim().toLowerCase();
     setState("busy");
-    submitForm("checklist", {
-      email: em,
-      page: location.href,
-      submitted_at: new Date().toISOString(),
-    })
-      .then(() => setState("done"))
-      .catch(() => {
-        setState("idle");
-        alert(FAIL);
+    setError("");
+    try {
+      const result = await submitForm("checklist", {
+        email,
+        page: location.href,
+        submitted_at: new Date().toISOString(),
       });
+      setDeliveryNote(result?.emailSent === false
+        ? "Your request has been saved, but the checklist email could not be delivered right now. Please contact us so we can send it to you."
+        : "Thank you. Your tech pack checklist has been sent to your email.");
+      setState("done");
+      form.reset();
+    } catch (e2) {
+      setError(e2.message || FAIL);
+      setState("error");
+    }
   };
   return (
     <form className="mini" onSubmit={onSubmit}>
-      <input
-        type="email"
-        name="reply_to"
-        placeholder="Your email"
-        required
-        aria-label="Your email"
-      />
-      <button className={"btn" + (state === "busy" ? " busy" : "")}>
-        Send me the checklist
+      <input type="email" name="reply_to" placeholder="Your email" required aria-label="Your email" autoComplete="email" />
+      <input className="hp" type="text" name="website_url" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+      {error && <p className="err show" role="alert">{error}</p>}
+      <button className={"btn" + (state === "busy" ? " busy" : "")} disabled={state === "busy"}>
+        {state === "busy" ? "Sending checklist…" : "Send me the checklist"}
       </button>
     </form>
   );

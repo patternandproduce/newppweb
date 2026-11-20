@@ -5,12 +5,18 @@ const db = () =>
   createClient(env("SUPABASE_URL"), env("SUPABASE_SECRET_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-const leadKinds = new Set([
-  "registrations",
-  "consultations",
-  "quotes",
-  "contacts",
-]);
+const formTables = {
+  // The Contact page is one form with three tabs; all variants are stored in
+  // its own table and distinguished by data.type.
+  training: "contact_submissions",
+  consultations: "contact_submissions",
+  quotes: "contact_submissions",
+  contacts: "contact_submissions",
+  checklist: "checklist_requests",
+};
+const contactTypeFilters = { training: "learn", consultations: "biz", quotes: "quote" };
+const legacyLeadKind = (kind) => kind === "training" ? "contacts" : kind;
+const leadKinds = new Set(["registrations", ...Object.keys(formTables)]);
 const clean = (v) => String(v ?? "").slice(0, 10000);
 
 async function authUser(req, adminOnly = false) {
@@ -23,12 +29,31 @@ async function authUser(req, adminOnly = false) {
     error,
   } = await client.auth.getUser(accessToken);
   if (error || !user) throw new Error("Your session is invalid or expired.");
-  const { data: profile, error: profileError } = await client
+  const { data: staffProfile } = await client
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
-  if (profileError || !profile || !profile.active)
+    .maybeSingle();
+  let profile = staffProfile;
+  if (!profile) {
+    const { data: application, error: applicationError } = await client
+      .from("student_applications")
+      .select("user_id,email,full_name,status")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (applicationError || !application)
+      throw new Error("Your account is not registered as staff or an applicant.");
+    profile = {
+      id: user.id,
+      email: application.email,
+      name: application.full_name,
+      username: application.email,
+      role: "student",
+      active: application.status === "approved",
+      approval_status: application.status,
+    };
+  }
+  if (!profile.active)
     throw new Error("Your account is not active.");
   if (profile.role === "student" && profile.approval_status !== "approved")
     throw new Error("Your student account is awaiting approval or is not authorised.");
@@ -59,11 +84,17 @@ export default async function handler(req, res) {
       const client = db();
       const { data: { user }, error: userError } = await client.auth.getUser(accessToken);
       if (userError || !user) throw new Error("Your session is invalid or expired.");
-      const { data: profile, error } = await client.from("profiles")
+      const { data: staffProfile } = await client.from("profiles")
         .select("id,email,name,role,active,approval_status")
-        .eq("id", user.id).single();
-      if (error || !profile) throw new Error("Your student profile could not be found.");
-      return send(res, 200, { ok: true, data: { role: profile.role, active: profile.active, approvalStatus: profile.approval_status } });
+        .eq("id", user.id).maybeSingle();
+      if (staffProfile) {
+        return send(res, 200, { ok: true, data: { role: staffProfile.role, active: staffProfile.active, approvalStatus: staffProfile.approval_status || "approved" } });
+      }
+      const { data: application, error } = await client.from("student_applications")
+        .select("user_id,email,full_name,status")
+        .eq("user_id", user.id).maybeSingle();
+      if (error || !application) throw new Error("Your student application could not be found.");
+      return send(res, 200, { ok: true, data: { role: "student", active: application.status === "approved", approvalStatus: application.status } });
     }
 
     if (action === "student.application.submit") {
@@ -74,34 +105,31 @@ export default async function handler(req, res) {
       delete application.password;
       delete application.confirm_password;
       delete application.company;
+      delete application.website_url;
       if (!/^[0-9a-f-]{36}$/i.test(userId) || !/^\S+@\S+\.\S+$/.test(email))
         throw new Error("The student account details are invalid. Please try again.");
       const client = db();
       const { data: authResult, error: authError } = await client.auth.admin.getUserById(userId);
       if (authError || !authResult?.user || String(authResult.user.email || "").toLowerCase() !== email)
         throw new Error("We could not verify the student account. Please try registering again.");
-      const { data: profile, error: profileError } = await client.from("profiles")
-        .select("id,role,approval_status,email")
-        .eq("id", userId).single();
-      if (profileError || !profile || profile.role !== "student" || profile.approval_status !== "pending")
-        throw new Error("This account is not eligible for a new student application. Please use the student login page.");
+      const { data: existing, error: existingError } = await client.from("student_applications")
+        .select("id,status").eq("user_id", userId).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) throw new Error("An application already exists for this account. Please sign in or contact us for help.");
       const fullName = `${clean(application.first_name).trim()} ${clean(application.last_name).trim()}`.trim();
       const { error: appError } = await client.from("student_applications").insert({
         user_id: userId, email, full_name: fullName, data: application, status: "pending",
       });
       if (appError) {
-        if (appError.code === "23505") throw new Error("An application already exists for this account. Please wait for approval or sign in.");
+        if (appError.code === "23505")
+          throw new Error("An application already exists for this account. Please sign in or contact us for help.");
+        // Do not leave an Auth account behind when its application could not be saved.
+        const { error: cleanupError } = await client.auth.admin.deleteUser(userId);
+        if (cleanupError) console.error("Could not roll back incomplete student account:", cleanupError.message);
         throw appError;
       }
-      const { error: leadError } = await client.from("leads").insert({
-        kind: "registrations", data: application, status: "new", exported: false,
-      });
-      if (leadError) {
-        await client.from("student_applications").delete().eq("user_id", userId);
-        throw leadError;
-      }
       try {
-        await fetch("https://api.resend.com/emails", {
+        const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -111,6 +139,7 @@ export default async function handler(req, res) {
             text: `A new student application has been submitted by ${fullName || email}. Please review it in the Student Access section of your admin dashboard.`,
           }),
         });
+        if (!response.ok) console.error("Student application notification failed:", (await response.text()).slice(0, 300));
       } catch (mailError) { console.error("Student application notification failed:", mailError?.message); }
       return send(res, 200, { ok: true, data: { accepted: true, status: "pending" } });
     }
@@ -158,53 +187,65 @@ export default async function handler(req, res) {
     }
     if (action === "lead.create") {
       const kind = data.kind;
-      if (!leadKinds.has(kind)) throw new Error("Invalid submission type.");
-      const payload =
-        data.data && typeof data.data === "object" ? data.data : {};
-      if (payload.company)
-        return send(res, 200, { ok: true, data: { accepted: true } });
-      const { error } = await db()
-        .from("leads")
-        .insert({ kind, data: payload, status: "new", exported: false });
+      const table = formTables[kind];
+      if (!table) throw new Error("Invalid submission type.");
+      const payload = data.data && typeof data.data === "object" ? data.data : {};
+      if (payload.website_url) return send(res, 200, { ok: true, data: { accepted: true, spam: true } });
+      const email = String(payload.email || "").trim().toLowerCase();
+      if (kind === "checklist" && !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Please enter a valid email address.");
+      const { data: saved, error } = await db().from(table)
+        .insert({ data: payload, status: "new", exported: false }).select("id").single();
       if (error) throw error;
-      // Notify the business through Resend. Database acceptance remains authoritative if email is temporarily unavailable.
 
-      // Send a notification only. Registration details remain in Supabase.
+      // The checklist request is stored first, then the promised checklist is emailed to the visitor.
+      let checklistEmailSent = null;
+      if (kind === "checklist") {
+        const checklistText = [
+          "PATTERN & PRODUCE — TECH PACK CHECKLIST", "",
+          "Before sending a garment into production, make sure your tech pack includes:",
+          "1. Style name, style number, season and revision date.",
+          "2. Front, back and relevant detail technical flats.",
+          "3. Construction details, stitch types and seam finishes.",
+          "4. Measurement specification sheet with points of measure and tolerances.",
+          "5. Size range and graded measurement chart.",
+          "6. Bill of materials: fabrics, trims, labels, threads and accessories.",
+          "7. Fabric composition, weight, colour and approved supplier/reference.",
+          "8. Colourways, artwork, print/embroidery placement and dimensions.",
+          "9. Label, packaging, folding and finishing instructions.",
+          "10. Sample comments, approved references and revision history.",
+          "", "Use this list as a final hand-off check and ensure every specification is clear and approved before bulk production.",
+          "", "Pattern & Produce Limited"
+        ].join("\n");
+        checklistEmailSent = false;
+        try {
+          const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: env("EMAIL_FROM"), to: [email], subject: "Your Pattern & Produce Tech Pack Checklist", text: checklistText }),
+          });
+          checklistEmailSent = response.ok;
+          if (!response.ok) console.error("Checklist delivery failed:", (await response.text()).slice(0, 500));
+        } catch (mailError) {
+          console.error("Checklist delivery failed:", mailError?.message);
+        }
+        // The saved request is authoritative. Do not make the visitor resubmit if email delivery is temporarily unavailable.
+      }
       try {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${env("RESEND_API_KEY")}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${env("RESEND_API_KEY")}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             from: env("EMAIL_FROM"),
-            to: [
-              process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com",
-            ],
-            subject: `New ${kind} submission received`,
-            text: `A new ${kind} submission has been received on the Pattern & Produce website.
-Please log in to your admin dashboard to review the submission.
-Submission type: ${kind}
-Submitted by: ${payload.first_name || "A website visitor"}
-Email: ${payload.email || "Not provided"}
-This email is an automated notification. No registration details are included.`,
+            to: [process.env.CONTACT_NOTIFY_EMAIL || "patternandproduce@gmail.com"],
+            subject: `New ${kind} form submission received`,
+            text: `A new ${kind} submission has been received. Review it in the corresponding admin section.\nEmail: ${email || "Not provided"}\nRecord ID: ${saved.id}`,
           }),
         });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Resend error: ${errorText}`);
-        }
-      } catch (mailError) {
-        console.error(
-          "Submission notification email failed:",
-          mailError?.message,
-        );
-      }
-
-      return send(res, 200, { ok: true, data: { accepted: true } });
+        if (!response.ok) console.error("Form notification failed:", (await response.text()).slice(0, 300));
+      } catch (mailError) { console.error("Form notification failed:", mailError?.message); }
+      return send(res, 200, { ok: true, data: { accepted: true, emailSent: checklistEmailSent, id: saved.id } });
     }
+
     if (action === "visit") {
       const sid = clean(data.sid).slice(0, 100);
       const path = clean(data.path).slice(0, 300);
@@ -492,13 +533,21 @@ This email is an automated notification. No registration details are included.`,
     }
     if (action === "leads.list") {
       if (!leadKinds.has(data.kind)) throw new Error("Invalid lead category.");
-      const { data: rows, error } = await client
-        .from("leads")
-        .select("*")
-        .eq("kind", data.kind)
-        .order("created_at", { ascending: false });
+      if (data.kind === "registrations") {
+        const { data: rows, error } = await client.from("leads").select("*").eq("kind", "registrations").order("created_at", { ascending: false });
+        if (error) throw error;
+        return send(res, 200, { ok: true, data: rows.map(asLead) });
+      }
+      const table = formTables[data.kind];
+      let query = client.from(table).select("*").order("created_at", { ascending: false });
+      if (contactTypeFilters[data.kind]) query = query.eq("data->>type", contactTypeFilters[data.kind]);
+      const { data: rows, error } = await query;
       if (error) throw error;
-      return send(res, 200, { ok: true, data: rows.map(asLead) });
+      const { data: legacy, error: legacyError } = await client.from("leads").select("*").eq("kind", legacyLeadKind(data.kind)).order("created_at", { ascending: false });
+      if (legacyError) throw legacyError;
+      const legacyRows = (legacy || []).filter((r) => !contactTypeFilters[data.kind] || r.data?.type === contactTypeFilters[data.kind]);
+      const current = (rows || []).map((r) => ({ id: r.id, kind: data.kind, data: r.data || {}, status: r.status, exported: r.exported, createdAt: r.created_at }));
+      return send(res, 200, { ok: true, data: [...current, ...legacyRows.map(asLead)].sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))) });
     }
     if (action === "leads.mark") {
       if (
@@ -516,12 +565,17 @@ This email is an automated notification. No registration details are included.`,
       if (typeof data.exported === "boolean") patch.exported = data.exported;
       if (!Object.keys(patch).length)
         throw new Error("No valid update provided.");
-      const { error } = await client
-        .from("leads")
-        .update(patch)
-        .eq("kind", data.kind)
-        .in("id", data.ids);
-      if (error) throw error;
+      if (data.kind === "registrations") {
+        const { error } = await client.from("leads").update(patch).eq("kind", data.kind).in("id", data.ids);
+        if (error) throw error;
+      } else {
+        const table = formTables[data.kind];
+        const { error } = await client.from(table).update(patch).in("id", data.ids);
+        if (error) throw error;
+        // Also update historical records that were stored in the former shared leads table.
+        const { error: legacyError } = await client.from("leads").update(patch).eq("kind", legacyLeadKind(data.kind)).in("id", data.ids);
+        if (legacyError) throw legacyError;
+      }
       return send(res, 200, { ok: true, data: true });
     }
     if (action === "analytics") {
@@ -637,15 +691,11 @@ This email is an automated notification. No registration details are included.`,
       const status = String(data.status || "");
       if (!/^[0-9a-f-]{36}$/i.test(id) || !["approved", "denied", "revoked"].includes(status))
         throw new Error("Choose a valid student and access status.");
-      const active = status === "approved";
-      const { error: profileError } = await client.from("profiles")
-        .update({ role: "student", active, approval_status: status })
-        .eq("id", id).eq("role", "student");
-      if (profileError) throw profileError;
-      const { error: appError } = await client.from("student_applications")
+      const { data: updatedApplication, error: appError } = await client.from("student_applications")
         .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user.id })
-        .eq("user_id", id);
+        .eq("user_id", id).select("user_id").maybeSingle();
       if (appError) throw appError;
+      if (!updatedApplication) throw new Error("Student application not found.");
       return send(res, 200, { ok: true, data: { updated: true, status } });
     }
 
@@ -735,12 +785,23 @@ This email is an automated notification. No registration details are included.`,
       if (!leadKinds.has(data.kind)) throw new Error("Invalid lead category.");
       if (!Array.isArray(data.ids) || !data.ids.length || data.ids.length > 100)
         throw new Error("Select between 1 and 100 recipients.");
-      const { data: rows, error } = await client
-        .from("leads")
-        .select("id,data")
-        .eq("kind", data.kind)
-        .in("id", data.ids);
-      if (error) throw error;
+      let rows = [];
+      if (data.kind === "registrations") {
+        const { data: found, error } = await client.from("leads").select("id,data").eq("kind", data.kind).in("id", data.ids);
+        if (error) throw error;
+        rows = found || [];
+      } else {
+        const table = formTables[data.kind];
+        const { data: found, error } = await client.from(table).select("id,data").in("id", data.ids);
+        if (error) throw error;
+        rows = found || [];
+        const missingIds = data.ids.filter((id) => !rows.some((r) => r.id === id));
+        if (missingIds.length) {
+          const { data: legacy, error: legacyError } = await client.from("leads").select("id,data").eq("kind", legacyLeadKind(data.kind)).in("id", missingIds);
+          if (legacyError) throw legacyError;
+          rows = rows.concat(legacy || []);
+        }
+      }
       const recipients = rows
         .map((r) => ({
           id: r.id,

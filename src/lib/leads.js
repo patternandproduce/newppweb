@@ -2,7 +2,9 @@ import { rpc } from './adminApi.js';
 import { downloadXlsx } from './xlsx.js';
 
 export const KINDS = {
-  registrations: { label: 'Registered users', one: 'registration', blurb: 'People who registered for training.' },
+  registrations: { label: 'Legacy registrations', one: 'registration', blurb: 'Historical registrations from the former shared leads table.' },
+  training: { label: 'Training enquiries', one: 'training enquiry', blurb: 'Visitors interested in learning fashion and garment skills.' },
+  checklist: { label: 'Tech pack checklist requests', one: 'checklist request', blurb: 'Visitors who requested the FashionTech checklist.' },
   consultations: { label: 'Consultation requests', one: 'consultation request', blurb: 'Visitors who asked for a consultation.' },
   quotes: { label: 'Quote requests', one: 'quote request', blurb: 'Visitors who asked for a quotation.' },
   contacts: { label: 'Contact messages', one: 'message', blurb: 'Visitors who are trying to contact us.' },

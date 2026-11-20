@@ -716,7 +716,9 @@ function PublishTab({ lib, commit, reload }) {
 /* ---------- Shell ---------- */
 const NAV = [
   { to: "/admin", label: "Analytics", icon: "grid", end: true },
-  { to: "/admin/leads/registrations", label: "Registered users", icon: "book" },
+  { to: "/admin/students", label: "Registered students", icon: "book" },
+  { to: "/admin/leads/training", label: "Training enquiries", icon: "graduation-cap" },
+  { to: "/admin/leads/checklist", label: "Tech pack checklist", icon: "file-check" },
   {
     to: "/admin/leads/consultations",
     label: "Consultation requests",
@@ -725,7 +727,6 @@ const NAV = [
   { to: "/admin/leads/quotes", label: "Quote requests", icon: "ruler" },
   { to: "/admin/leads/contacts", label: "Contact messages", icon: "mail" },
   { to: "/admin/newsletter", label: "Newsletter", icon: "mail" },
-  { to: "/admin/students", label: "Student access", icon: "book" },
   { to: "/admin/videos", label: "Tutorial videos", icon: "play" },
   { to: "/admin/phases", label: "Phases", icon: "layers" },
   { to: "/admin/publish", label: "Publish & backup", icon: "upload" },
