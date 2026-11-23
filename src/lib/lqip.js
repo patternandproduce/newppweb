@@ -1,0 +1,9 @@
+/* Tiny blurred previews shown while photos load (generated once). */
+export default {
+ "techpack": "data:image/webp;base64,UklGRnQAAABXRUJQVlA4IGgAAADQAwCdASoYAA4APu1iqk2ppaQiMAgBMB2JQBWAAxjxag9brWPeAAAA/u1r7DjcNbVlpPLm2MunP+4mAisUqPI7hmmx9dd8WMefOOcWfOSwWPgwNkN7JeZPHMLauRUNIVxpew9r+CakAA==",
+ "studio": "data:image/webp;base64,UklGRlwAAABXRUJQVlA4IFAAAACwAwCdASoYABAAPu1iqU2ppaOiMAgBMB2JaQAAW+tcVLvHpo3CwAD+8MlyjSzAtH+7mLcNQvSjmmJ9LUN7cPNcCoQM3au4BLlPzGRrGKBQAA==",
+ "portrait": "data:image/webp;base64,UklGRoIAAABXRUJQVlA4IHYAAABwBQCdASoYACQAPu1krVEppSQiqrgKATAdiWkAABf3t5R9DBRUFc/vf3whJgOBk7uIwzYIAP5TJMewowcgT9SdfnttplXS+xhabSagZvBEqK1ZI1nNUn0YltyuK4CJ5wcfpH+9za8MuxQc1eXZr39fOHH1SAAA"
+,
+ "home-workforce": "data:image/webp;base64,UklGRmgAAABXRUJQVlA4IFwAAAAQBACdASoRACAAPwFqrU8rJiQiMAgBYCAJaQAAW+oIQCJd/QdkEs/pAAD+8qujLG1qzxfuZOyuogZRvkBedGA+Yr/EvXTtQZiEWzSvNTuYEXLfvJPij5GScagAAA==",
+ "garment-manufacturing": "data:image/webp;base64,UklGRtYAAABXRUJQVlA4IMoAAABwBQCdASogABMAPwFys1GrJqSiqAqpYCAJaQAD5ns2/9N3v3fLk0UoiKKn1rVn8EFDysygAP7oNC+cDWyBBIQwZC66wfeaw+GsJGIoFAC0wP7tkvlazGXpMDhqrRlXXBld4hAuBG3t6lyG+nfBsGomTJ8VWzZBIgNmnzszRcrEV773mLKajbwJ0fDj6mJ/pJZHgNAZBtceJdmE5ceca0ePXnemUZGPX+UAjYHcSC/3wSSLKpXSyAFfnPBJVxhoJJ99fk9RC1IxWAAA"
+}
