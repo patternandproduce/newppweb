@@ -6,6 +6,7 @@ import { ChecklistForm } from "../components/Forms.jsx";
 import usePageTitle from "../components/usePageTitle.js";
 
 const W = "(max-width:1100px) 100vw, 1100px";
+const w = "(max-width:800px) 80vw, 800px";
 
 const serviceGroups = [
   {
@@ -82,6 +83,7 @@ export default function FashionTech() {
           name="techpack"
           className="fit"
           label="Technical flats"
+          pos="50% 50%"
           sizes={W}
         />
       ),
@@ -95,7 +97,7 @@ export default function FashionTech() {
     {
       caption: "Fabric and trims",
       photo: (
-        <Photo name="studio" pos="92% 85%" label="Fabric and trims" sizes={W} />
+        <Photo name="fabric" pos="40% 40%" label="Fabric and trims" sizes={W} />
       ),
     },
     {
@@ -105,7 +107,7 @@ export default function FashionTech() {
           name="portrait"
           pos="50% 38%"
           label="Finished garments"
-          sizes={W}
+          sizes={w}
         />
       ),
     },

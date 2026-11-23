@@ -135,7 +135,7 @@ export default function Home() {
         <section className="bleed">
           <div className="split rev">
             <Photo
-              name="studio"
+              name="garment-manufacturing"
               pos="88% 70%"
               sizes={HALF}
               className="flat"
@@ -162,7 +162,7 @@ export default function Home() {
       <section className="bleed">
         <div className="split">
           <Photo
-            name="portrait"
+            name="home-workforce"
             pos="50% 42%"
             sizes={HALF}
             className="flat"
@@ -209,7 +209,7 @@ export default function Home() {
         <div className="grid">
           <figure className="work">
             <Photo
-              name="techpack"
+              name="flat-pack"
               pos="22% 50%"
               sizes="(max-width:720px) 100vw, 33vw"
               style={{ marginTop: 0 }}
@@ -221,7 +221,7 @@ export default function Home() {
           </figure>
           <figure className="work">
             <Photo
-              name="studio"
+              name="manufacturing"
               pos="20% 92%"
               sizes="(max-width:720px) 100vw, 33vw"
               style={{ marginTop: 0 }}
@@ -233,7 +233,7 @@ export default function Home() {
           </figure>
           <figure className="work">
             <Photo
-              name="portrait"
+              name="training"
               pos="50% 30%"
               sizes="(max-width:720px) 100vw, 33vw"
               style={{ marginTop: 0 }}

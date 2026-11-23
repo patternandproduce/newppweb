@@ -61,8 +61,8 @@ export default function Manufacturing() {
           </li>
         </ul>
         <Photo
-          name="studio"
-          pos="75% 75%"
+          name="fabric"
+          pos="40% 40%"
           sizes="(max-width:1100px) 100vw, 1100px"
           label="Factory floor"
         />
