@@ -34,7 +34,21 @@ export async function signIn(email, password) {
     password,
   });
   if (error) throw error;
-  const profile = await rpc("me", {}, { auth: true });
+  let profile;
+  try {
+    profile = await rpc("me", {}, { auth: true });
+  } catch (error) {
+    // Do not leave a student or otherwise unauthorised account signed in
+    // after it attempts to use the staff/admin login.
+    await supabase.auth.signOut();
+    throw error;
+  }
+  if (!["admin", "staff"].includes(profile?.role)) {
+    await supabase.auth.signOut();
+    throw new Error(
+      "The admin dashboard is restricted to staff and administrators. Students should use Student Access.",
+    );
+  }
   if (!profile?.active) {
     await supabase.auth.signOut();
     throw new Error(

@@ -716,7 +716,7 @@ function PublishTab({ lib, commit, reload }) {
 /* ---------- Shell ---------- */
 const NAV = [
   { to: "/admin", label: "Analytics", icon: "grid", end: true },
-  { to: "/admin/students", label: "Registered students", icon: "book" },
+  { to: "/admin/students", label: "Registered students", icon: "book", admin: true },
   { to: "/admin/leads/training", label: "Training enquiries", icon: "graduation-cap" },
   { to: "/admin/leads/checklist", label: "Tech pack checklist", icon: "file-check" },
   {
@@ -726,11 +726,11 @@ const NAV = [
   },
   { to: "/admin/leads/quotes", label: "Quote requests", icon: "ruler" },
   { to: "/admin/leads/contacts", label: "Contact messages", icon: "mail" },
-  { to: "/admin/newsletter", label: "Newsletter", icon: "mail" },
+  { to: "/admin/newsletter", label: "Newsletter", icon: "mail", admin: true },
   { to: "/admin/videos", label: "Tutorial videos", icon: "play" },
   { to: "/admin/phases", label: "Phases", icon: "layers" },
   { to: "/admin/publish", label: "Publish & backup", icon: "upload" },
-  { to: "/admin/staff", label: "Staff", icon: "lock" },
+  { to: "/admin/staff", label: "Staff", icon: "lock", admin: true },
   // { to: "/admin/newsletter", label: "Newsletter", icon: "mail", admin: true },
 ];
 function titleFor(path) {
@@ -839,8 +839,14 @@ function Dashboard({ session, onLogout }) {
           <Route path="leads/:kind" element={<LeadsList />} />
           <Route path="leads/:kind/:id" element={<LeadDetail />} />
           <Route path="message" element={<Compose />} />
-          <Route path="newsletter" element={<Newsletter />} />
-          <Route path="students" element={<Students />} />
+          <Route
+            path="newsletter"
+            element={session.role === "admin" ? <Newsletter /> : <Navigate to="/admin" replace />}
+          />
+          <Route
+            path="students"
+            element={session.role === "admin" ? <Students /> : <Navigate to="/admin" replace />}
+          />
           <Route
             path="videos"
             element={lib ? <VideosTab lib={lib} commit={commit} /> : wait}
@@ -869,7 +875,10 @@ function Dashboard({ session, onLogout }) {
               )
             }
           />
-          <Route path="staff" element={<Staff />} />
+          <Route
+            path="staff"
+            element={session.role === "admin" ? <Staff /> : <Navigate to="/admin" replace />}
+          />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </section>

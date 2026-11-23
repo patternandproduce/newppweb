@@ -1281,3 +1281,10 @@
     min-height: 82px;
   }
 }
+.ad-ops .ad-chip.danger {
+  color: #9b2525;
+  border-color: #d9a2a2;
+}
+.ad-ops .ad-chip.danger:hover {
+  background: #fff0f0;
+}

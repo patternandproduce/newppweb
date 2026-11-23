@@ -529,9 +529,14 @@ export default async function handler(req, res) {
         action === "staff.list" ||
         action === "staff.save" ||
         action === "staff.setActive" ||
+        action === "staff.delete" ||
         action === "students.list" ||
         action === "students.setStatus",
     );
+    // This section serves the staff/admin dashboard. Approved students may
+    // use student.status and library.get above, but must never enter /admin APIs.
+    if (!["admin", "staff"].includes(profile.role))
+      throw new Error("The admin dashboard is restricted to staff and administrators.");
     if (action === "me") return send(res, 200, { ok: true, data: profile });
 
     if (action === "newsletter.list") {
@@ -1060,6 +1065,26 @@ export default async function handler(req, res) {
       if (error) throw error;
       return send(res, 200, { ok: true, data: true });
     }
+    if (action === "staff.delete") {
+      const id = String(data.id || "");
+      if (!/^[0-9a-f-]{36}$/i.test(id))
+        throw new Error("Choose a valid staff account.");
+      if (id === user.id)
+        throw new Error("You cannot delete your own administrator account.");
+      const { data: target, error: targetError } = await client
+        .from("profiles")
+        .select("id,role")
+        .eq("id", id)
+        .maybeSingle();
+      if (targetError) throw targetError;
+      if (!target || target.role !== "staff")
+        throw new Error("Only staff accounts can be deleted here.");
+      // Deleting the Auth user cascades to public.profiles (profiles.id
+      // references auth.users with ON DELETE CASCADE).
+      const { error: deleteError } = await client.auth.admin.deleteUser(id);
+      if (deleteError) throw deleteError;
+      return send(res, 200, { ok: true, data: { deleted: true } });
+    }
     if (action === "email.send") {
       const apiKey = env("RESEND_API_KEY");
       if (!leadKinds.has(data.kind)) throw new Error("Invalid lead category.");
@@ -1142,7 +1167,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("admin api:", error);
     const message = error?.message || "Unexpected server error.";
-    const status = /only administrators|only admins|permission/i.test(message)
+    const status = /only administrators|only admins|permission|restricted to staff/i.test(message)
       ? 403
       : /sign in|session|account|deactivated|invalid/i.test(message)
         ? 401

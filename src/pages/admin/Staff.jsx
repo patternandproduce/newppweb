@@ -27,6 +27,7 @@ export default function Staff() {
             <div className="ad-ops">
               <button className="ad-chip on" onClick={() => { const p = prompt(`New password for ${u.email || u.username} (at least 8 characters)`); if (p) act(() => rpc('staff.save', { ...u, password: p }, { auth: true })); }}>Reset password</button>
               <button className="ad-chip" onClick={() => act(() => rpc('staff.setActive', { id: u.id, active: !u.active }, { auth: true }))}>{u.active ? 'Deactivate' : 'Activate'}</button>
+              {u.role === 'staff' && <button className="ad-chip danger" onClick={() => { if (window.confirm(`Permanently delete ${u.name || u.email || u.username}? This removes their staff account and profile.`)) act(() => rpc('staff.delete', { id: u.id }, { auth: true })); }}>Delete staff</button>}
             </div>
           </div>
         ))}
