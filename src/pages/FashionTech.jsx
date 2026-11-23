@@ -80,7 +80,7 @@ export default function FashionTech() {
       caption: "Technical flats",
       photo: (
         <Photo
-          name="techpack"
+          name="fashion-tech"
           className="fit"
           label="Technical flats"
           pos="50% 50%"
@@ -91,7 +91,7 @@ export default function FashionTech() {
     {
       caption: "Pattern drafting",
       photo: (
-        <Photo name="studio" pos="40% 40%" label="Pattern drafting" sizes={W} />
+        <Photo name="pattern-landscape" pos="40% 40%" label="Pattern drafting" sizes={W} />
       ),
     },
     {

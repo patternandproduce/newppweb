@@ -80,6 +80,12 @@ work: {
     h: 1250,
     alt: "Black and white fashion photograph of a draping dress with a sheer back panel",
   },
+"fashion-tech": {
+    ws: [3200],
+    w: 3200,
+    h: 900,
+    alt: "Black and white fashion photograph of a draping dress with a sheer back panel",
+  },
 };
 export const IMG = Object.fromEntries(
   Object.entries(def).map(([n, d]) => [
