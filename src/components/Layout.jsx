@@ -10,6 +10,7 @@ import {
   FaRegCommentDots,
   FaNewspaper,
   FaWhatsapp,
+  FaLinkedin,
 } from "react-icons/fa";
 
 const NAV = [
@@ -275,6 +276,21 @@ function Footer() {
           >
             <FaInstagram size={18} />
             <span>Instagram</span>
+          </a>
+          <a
+            href={CONTACT.linkedin}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Visit our LinkedIn"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              textDecoration: "none",
+            }}
+          >
+            <FaLinkedin size={18} />
+            <span>LinkedIn</span>
           </a>
 
           <Link

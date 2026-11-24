@@ -12,6 +12,7 @@ export const CONTACT = {
   phoneHref: "tel:+2349039902994",
   whatsapp: "https://wa.me/2349039902994",
   instagram: "https://www.instagram.com/patternandproduce/",
+  linkedin: "https://www.linkedin.com/company/patternandproduce/home/",
   address: "312 Murtala Mohammed Way, Alagomeji, Yaba, Lagos.",
   hours: "Monday to Friday, 9:00am to 5:00pm",
 };
